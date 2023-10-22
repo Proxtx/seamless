@@ -1,5 +1,10 @@
 mod input;
 
+use input::{MouseInputReceiver, MouseMovement};
+
 fn main() {
-    println!("Hello, world!");
+    let receiver = MouseInputReceiver::new();
+    receiver.mouse_movement_listener(|movement: MouseMovement| {
+        println!("{:?}", movement);
+    })
 }
