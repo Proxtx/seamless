@@ -1,8 +1,6 @@
-use {
-    ipnetwork::Ipv4Network,
-    network_interface::{NetworkInterface, NetworkInterfaceConfig},
-    std::net::{Ipv4Addr, UdpSocket},
-};
+use std::net::{Ipv4Addr, UdpSocket};
+
+const SERVICE_NAME: &'static str = "_http._tcp.local";
 
 struct Device {
     ip: Ipv4Addr,
@@ -24,12 +22,13 @@ impl Devices {
         }
     }
 
-    pub fn search(&mut self) {
-        let network_interfaces = NetworkInterface::show().unwrap();
+    pub async fn search(&mut self) {
+        //mdns::discover::;
+        let disc = mdns::discover::all(SERVICE_NAME, std::time::Duration::from_secs(15))
+            .expect("err")
+            .listen();
 
-        for itf in network_interfaces.iter() {
-            println!("{:?}", itf);
-        }
+        //pin_mut!(disc);
 
         //Ipv4Network::with_netmask(Ipv4Addr::new(0, 0, 0, 0));
     }
