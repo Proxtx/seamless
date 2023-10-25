@@ -1,35 +1,61 @@
-use std::net::{Ipv4Addr, UdpSocket};
+use std::{
+    error::Error,
+    fmt, io,
+    net::{IpAddr, SocketAddr, UdpSocket},
+};
 
-const SERVICE_NAME: &'static str = "_http._tcp.local";
-
-struct Device {
-    ip: Ipv4Addr,
-    port: u16,
+#[derive(Debug)]
+pub enum UdpError {
+    BindingError,
+    IoError(io::Error),
 }
 
-pub struct Communicate {
-    devices: Devices,
-}
-
-pub struct Devices {
-    devices: Vec<Device>,
-}
-
-impl Devices {
-    pub fn new() -> Self {
-        Devices {
-            devices: Vec::new(),
+impl fmt::Display for UdpError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            UdpError::BindingError => {
+                write!(f, "Was unable to bind to port! Is the port in use?")
+            }
+            UdpError::IoError(..) => {
+                write!(f, "Udp Error: IO Error")
+            }
         }
     }
+}
 
-    pub async fn search(&mut self) {
-        //mdns::discover::;
-        let disc = mdns::discover::all(SERVICE_NAME, std::time::Duration::from_secs(15))
-            .expect("err")
-            .listen();
+impl Error for UdpError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match *self {
+            UdpError::BindingError => None,
+            UdpError::IoError(ref error) => Some(error),
+        }
+    }
+}
 
-        //pin_mut!(disc);
+impl From<io::Error> for UdpError {
+    fn from(value: io::Error) -> Self {
+        Self::IoError(value)
+    }
+}
 
-        //Ipv4Network::with_netmask(Ipv4Addr::new(0, 0, 0, 0));
+struct UdpCommunicate {
+    udp: UdpSocket,
+}
+
+impl UdpCommunicate {
+    pub fn new(port: u16) -> Result<UdpCommunicate, UdpError> {
+        let udp = match UdpSocket::bind("127.0.0.1:".to_owned() + &port.to_string()) {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(UdpError::BindingError);
+            }
+        };
+
+        Ok(UdpCommunicate { udp })
+    }
+
+    pub fn send(&self, addr: SocketAddr, data: String) -> Result<(), UdpError> {
+        self.udp.send_to(data.as_bytes(), addr)?;
+        Ok(())
     }
 }

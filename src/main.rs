@@ -1,7 +1,8 @@
 mod communicate;
 //mod input;
-use async_std::stream::StreamExt;
+//use async_std::stream::StreamExt;
 use tokio::pin;
+use tokio_stream::StreamExt;
 
 const SERVICE_NAME: &'static str = "_seamless._udp.local";
 
