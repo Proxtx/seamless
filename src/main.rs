@@ -19,6 +19,10 @@ async fn main() -> std::io::Result<()> {
         )
         .unwrap();
 
+    loop {
+        comms.
+    }
+
     /*std::net::UdpSocket::bind("127.0.0.1:34254")?;
 
     //send

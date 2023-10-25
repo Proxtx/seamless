@@ -1,8 +1,10 @@
 use std::{
     error::Error,
     fmt, io,
-    net::{IpAddr, SocketAddr, UdpSocket},
+    net::{IpAddr, SocketAddr},
+    
 };
+use tokio::net::UdpSocket;
 
 #[derive(Debug)]
 pub enum UdpError {
@@ -43,19 +45,26 @@ pub struct UdpCommunicate {
 }
 
 impl UdpCommunicate {
-    pub fn new(port: u16) -> Result<UdpCommunicate, UdpError> {
-        let udp = match UdpSocket::bind("127.0.0.1:".to_owned() + &port.to_string()) {
+    pub async fn new(port: u16) -> Result<UdpCommunicate, UdpError> {
+        let udp = match UdpSocket::bind("127.0.0.1:".to_owned() + &port.to_string()).await {
             Ok(v) => v,
             Err(e) => {
                 return Err(UdpError::BindingError);
             }
         };
 
+        udp.join_multicast_v4(multiaddr, interface);
+
         Ok(UdpCommunicate { udp })
     }
 
-    pub fn send(&self, addr: SocketAddr, data: String) -> Result<(), UdpError> {
-        self.udp.send_to(data.as_bytes(), addr)?;
+    pub async fn send(&self, addr: SocketAddr, data: String) -> Result<(), UdpError> {
+        self.udp.send_to(data.as_bytes(), addr).await?;
         Ok(())
+    }
+
+    pub fn receive(&self) -> String{
+        let buf = [0; 2024];
+        let (amt, src) = self.udp.
     }
 }
