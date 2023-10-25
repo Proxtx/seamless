@@ -8,7 +8,18 @@ const SERVICE_NAME: &'static str = "_seamless._udp.local";
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    std::net::UdpSocket::bind("127.0.0.1:34254")?;
+    let comms = communicate::UdpCommunicate::new(31456).unwrap();
+    comms
+        .send(
+            std::net::SocketAddr::new(
+                std::net::IpAddr::V4(std::net::Ipv4Addr::new(192, 168, 0, 224)),
+                31456,
+            ),
+            String::from("Hello"),
+        )
+        .unwrap();
+
+    /*std::net::UdpSocket::bind("127.0.0.1:34254")?;
 
     //send
 
@@ -49,7 +60,7 @@ async fn main() -> std::io::Result<()> {
         receiver.mouse_movement_listener(|movement: MouseMovement| {
             //println!("{:?}", movement);
         })
-    }*/
+    }*/*/
 
     Ok(())
 }

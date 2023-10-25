@@ -38,7 +38,7 @@ impl From<io::Error> for UdpError {
     }
 }
 
-struct UdpCommunicate {
+pub struct UdpCommunicate {
     udp: UdpSocket,
 }
 
