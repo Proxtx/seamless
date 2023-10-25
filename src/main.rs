@@ -10,13 +10,16 @@ const GROUP_ID_PORT: &str = "225.0.0.1:8000";
 
 #[tokio::main]
 async fn main() {
+    let t = std::sync::Arc::new(tokio::sync::Barrier::new(2));
+    let t2 = t.clone();
     tokio::spawn(async move {
         receiver().await;
+        t.wait().await;
     });
 
     sender().await;
 
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    t2.wait().await;
 }
 
 async fn sender() {
@@ -37,11 +40,15 @@ async fn receiver() {
         .unwrap();
 
     let mut buf = [0; 2024];
+    loop {
+        let (amt, src) = socket.recv_from(&mut buf).await.unwrap();
 
-    let (amt, src) = socket.recv_from(&mut buf).await.unwrap();
+        let buf = &mut buf[..amt];
+        let buf = &mut buf[..amt];
+        buf.reverse();
+        let buf = &mut buf[..amt];
+        buf.reverse();
 
-    let buf = &mut buf[..amt];
-    buf.reverse();
-
-    println!("received: {}", std::str::from_utf8(buf).unwrap());
+        println!("received: {}", std::str::from_utf8(buf).unwrap());
+    }
 }
