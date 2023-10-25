@@ -44,10 +44,6 @@ async fn receiver() {
         let (amt, src) = socket.recv_from(&mut buf).await.unwrap();
 
         let buf = &mut buf[..amt];
-        let buf = &mut buf[..amt];
-        buf.reverse();
-        let buf = &mut buf[..amt];
-        buf.reverse();
 
         println!("received: {}", std::str::from_utf8(buf).unwrap());
     }
