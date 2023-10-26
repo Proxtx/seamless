@@ -117,7 +117,7 @@ impl EventHandler {
         let parser = self.parser.clone();
         tokio::spawn(async move {
             communicate
-                .receive(|msg, src| {
+                .receive(|msg, _src| {
                     match parser.parse(msg.to_string()) {
                         Ok(v) => {
                             handler(v);
@@ -165,9 +165,13 @@ impl MainParser {
         text: &String,
         parser: &Box<dyn Parser + Send>,
     ) -> Option<Result<Box<dyn Event>>> {
-        if !text.starts_with("M") {
+        if !text.starts_with(parser.get_prefix()) {
             return None;
         }
-        Some(parser.parse(text.clone()))
+        let mut text = text.clone();
+        for _ in 0..parser.get_prefix().len() {
+            text.remove(0);
+        }
+        Some(parser.parse(text))
     }
 }
