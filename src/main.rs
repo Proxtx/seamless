@@ -2,7 +2,7 @@ use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
 mod communicate;
 
-const GROUP_ID_PORT: &str = "225.0.0.1:8000";
+const GROUP_ID_PORT: &str = "229.128.47.16:8000";
 const SENDER_PORT: u16 = 8001;
 
 #[tokio::main]
