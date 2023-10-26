@@ -29,14 +29,17 @@ async fn main() {
         })
         .await;
     });
-    let rec = input::MouseInputReceiver::new();
-    rec.mouse_movement_listener(|movement| {
-        let handler = handler.clone();
+    #[cfg(feature = "send_mouse")]
+    {
+        let rec = input::MouseInputReceiver::new();
+        rec.mouse_movement_listener(|movement| {
+            let handler = handler.clone();
 
-        tokio::spawn(async move {
-            handler.emit_event(Box::new(movement)).await.unwrap();
+            tokio::spawn(async move {
+                handler.emit_event(Box::new(movement)).await.unwrap();
+            });
         });
-    });
+    }
 
     b.wait().await;
 }
