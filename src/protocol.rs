@@ -146,11 +146,19 @@ impl MainParser {
 
     fn parse(&self, text: String) -> Result<Events> {
         return if text.starts_with(self.mouse_movement_parser.get_prefix()) {
+            let mut text = text.clone();
+            self.prepare_text_text(self.mouse_movement_parser.get_prefix(), &mut text);
             Ok(Events::MouseMovement(
                 self.mouse_movement_parser.parse(text)?,
             ))
         } else {
             Err(ProtocolError::ParseError)
         };
+    }
+
+    fn prepare_text_text(&self, prefix: &'static str, text: &mut String) {
+        for _ in 0..prefix.len() {
+            text.remove(0);
+        }
     }
 }

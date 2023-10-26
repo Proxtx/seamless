@@ -22,6 +22,7 @@ async fn main() {
     tokio::spawn(async move {
         d_h.event_listener(|event| match event {
             protocol::Events::MouseMovement(v) => {
+                println!("{}|{}", v.x, v.y)
                 //let eng = enigo::Enigo::new()
                 //eng.mouse_move_relative(v.x,v.y)
             }
