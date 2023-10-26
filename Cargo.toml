@@ -13,4 +13,4 @@ tokio = {version="1.33.0", features = ["full"]}
 
 
 [features]
-send=["dep:device_query"]
+send_mouse=["dep:device_query"]

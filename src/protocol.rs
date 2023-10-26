@@ -1,12 +1,12 @@
 use {
-    crate::{communicate::Communicate, input::MouseMovement},
+    crate::communicate::Communicate,
     std::{error, fmt},
 };
 
 type Result<T> = std::result::Result<T, ProtocolError>;
 
 #[derive(Debug)]
-enum ProtocolError {
+pub enum ProtocolError {
     ParserError(String, String),
 }
 
@@ -14,7 +14,7 @@ impl error::Error for ProtocolError {}
 
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match self {
             ProtocolError::ParserError(parser, error) => {
                 write!(
                     f,

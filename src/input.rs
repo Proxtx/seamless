@@ -1,5 +1,7 @@
+#[cfg(feature = "send_mouse")]
 use device_query::{DeviceQuery, DeviceState};
 
+#[cfg(feature = "send_mouse")]
 pub struct MouseInputReceiver {
     mouse: DeviceState,
 }
@@ -19,6 +21,7 @@ impl MouseMovement {
     }
 }
 
+#[cfg(feature = "send_mouse")]
 impl MouseInputReceiver {
     pub fn new() -> Self {
         MouseInputReceiver {
