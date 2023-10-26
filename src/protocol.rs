@@ -43,15 +43,10 @@ impl From<CommunicateError> for ProtocolError {
     }
 }
 
-pub trait Parser
+pub trait Event
 where
-    Self: Sync,
+    Self: Send + Sync,
 {
-    fn parse(&self, text: String) -> Result<Box<dyn Event>>;
-    fn get_prefix(&self) -> &'static str;
-}
-
-pub trait Event {
     fn serialize(&self) -> String;
 }
 impl Event for MouseMovement {
@@ -62,8 +57,8 @@ impl Event for MouseMovement {
 
 struct MouseMoveParser {}
 
-impl Parser for MouseMoveParser {
-    fn parse(&self, text: String) -> Result<Box<dyn Event>> {
+impl MouseMoveParser {
+    fn parse(&self, text: String) -> Result<MouseMovement> {
         let mut split = text.split("|");
         let x: i32;
         let y: i32;
@@ -88,7 +83,7 @@ impl Parser for MouseMoveParser {
             }
         };
 
-        Ok(Box::new(MouseMovement { x, y }))
+        Ok(MouseMovement { x, y })
     }
 
     fn get_prefix(&self) -> &'static str {
@@ -109,26 +104,24 @@ impl EventHandler {
         }
     }
 
-    pub fn event_listener<T>(&self, handler: T)
+    pub async fn event_listener<T>(&self, handler: T)
     where
-        T: Fn(Box<dyn Event>) + Send + Sync + 'static,
+        T: Fn(Events) + Send + Sync + 'static,
     {
         let communicate = self.communicate.clone();
         let parser = self.parser.clone();
-        tokio::spawn(async move {
-            communicate
-                .receive(|msg, _src| {
-                    match parser.parse(msg.to_string()) {
-                        Ok(v) => {
-                            handler(v);
-                        }
-                        Err(e) => {
-                            println!("Error handling received udp package: {}", e)
-                        }
-                    };
-                })
-                .await;
-        });
+        communicate
+            .receive(|msg, _src| {
+                match parser.parse(msg.to_string()) {
+                    Ok(v) => {
+                        handler(v);
+                    }
+                    Err(e) => {
+                        println!("Error handling received udp package: {}", e)
+                    }
+                };
+            })
+            .await;
     }
 
     pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<usize> {
@@ -136,42 +129,28 @@ impl EventHandler {
     }
 }
 
+pub enum Events {
+    MouseMovement(MouseMovement),
+}
+
 pub struct MainParser {
-    parsers: Vec<Box<dyn Parser + Send>>,
+    mouse_movement_parser: MouseMoveParser,
 }
 
 impl MainParser {
     pub fn new() -> Self {
         MainParser {
-            parsers: vec![Box::new(MouseMoveParser {})],
+            mouse_movement_parser: MouseMoveParser {},
         }
     }
 
-    fn parse(&self, text: String) -> Result<Box<dyn Event>> {
-        for parser in self.parsers.iter() {
-            match self.try_parse(&text, parser) {
-                Some(v) => {
-                    return v;
-                }
-                None => {}
-            }
-        }
-
-        Err(ProtocolError::ParseError)
-    }
-
-    fn try_parse(
-        &self,
-        text: &String,
-        parser: &Box<dyn Parser + Send>,
-    ) -> Option<Result<Box<dyn Event>>> {
-        if !text.starts_with(parser.get_prefix()) {
-            return None;
-        }
-        let mut text = text.clone();
-        for _ in 0..parser.get_prefix().len() {
-            text.remove(0);
-        }
-        Some(parser.parse(text))
+    fn parse(&self, text: String) -> Result<Events> {
+        return if text.starts_with(self.mouse_movement_parser.get_prefix()) {
+            Ok(Events::MouseMovement(
+                self.mouse_movement_parser.parse(text)?,
+            ))
+        } else {
+            Err(ProtocolError::ParseError)
+        };
     }
 }

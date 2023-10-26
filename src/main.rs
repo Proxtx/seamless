@@ -14,16 +14,28 @@ async fn main() {
             .await
             .unwrap(),
     );
-    let handler = protocol::EventHandler::new(communicate);
+    let handler = Arc::new(protocol::EventHandler::new(communicate));
 
     let b = Arc::new(tokio::sync::Barrier::new(2));
 
-    handler.event_listener(|event| println!("Event: {}", event.serialize()));
+    let d_h = handler.clone();
+    tokio::spawn(async move {
+        d_h.event_listener(|event| match event {
+            protocol::Events::MouseMovement(v) => {
+                //let eng = enigo::Enigo::new()
+                //eng.mouse_move_relative(v.x,v.y)
+            }
+        })
+        .await;
+    });
+    let rec = input::MouseInputReceiver::new();
+    rec.mouse_movement_listener(|movement| {
+        let handler = handler.clone();
 
-    handler
-        .emit_event(Box::new(input::MouseMovement { x: 5, y: 10 }))
-        .await
-        .unwrap();
+        tokio::spawn(async move {
+            handler.emit_event(Box::new(movement)).await.unwrap();
+        });
+    });
 
     b.wait().await;
 }
