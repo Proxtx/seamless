@@ -1,5 +1,8 @@
 use {
-    crate::{communicate::Communicate, input::MouseMovement},
+    crate::{
+        communicate::{Communicate, CommunicateError},
+        input::MouseMovement,
+    },
     std::{error, fmt, sync::Arc},
 };
 
@@ -9,6 +12,7 @@ type Result<T> = std::result::Result<T, ProtocolError>;
 pub enum ProtocolError {
     ParserError(&'static str, String),
     ParseError,
+    CommunicateError(CommunicateError),
 }
 
 impl error::Error for ProtocolError {}
@@ -26,11 +30,23 @@ impl fmt::Display for ProtocolError {
             ProtocolError::ParseError => {
                 write!(f, "No matching parser was found!")
             }
+            ProtocolError::CommunicateError(error) => {
+                write!(f, "Communication Error: {}", error)
+            }
         }
     }
 }
 
-pub trait Parser {
+impl From<CommunicateError> for ProtocolError {
+    fn from(value: CommunicateError) -> Self {
+        ProtocolError::CommunicateError(value)
+    }
+}
+
+pub trait Parser
+where
+    Self: Sync,
+{
     fn parse(&self, text: String) -> Result<Box<dyn Event>>;
     fn get_prefix(&self) -> &'static str;
 }
@@ -40,7 +56,7 @@ pub trait Event {
 }
 impl Event for MouseMovement {
     fn serialize(&self) -> String {
-        format!("{}|{}", self.x, self.y)
+        format!("M{}|{}", self.x, self.y)
     }
 }
 
@@ -82,24 +98,53 @@ impl Parser for MouseMoveParser {
 
 pub struct EventHandler {
     communicate: Arc<Communicate>,
-    parsers: Vec<Box<dyn Parser>>,
+    parser: Arc<MainParser>,
 }
 
 impl EventHandler {
     pub fn new(communicate: Arc<Communicate>) -> Self {
         EventHandler {
             communicate,
-            parsers: vec![Box::new(MouseMoveParser {})],
+            parser: Arc::new(MainParser::new()),
         }
     }
 
-    pub fn await_event(&self, handler: impl Fn(Box<dyn Event>) -> ()) {
+    pub fn event_listener<T>(&self, handler: T)
+    where
+        T: Fn(Box<dyn Event>) + Send + Sync + 'static,
+    {
         let communicate = self.communicate.clone();
+        let parser = self.parser.clone();
         tokio::spawn(async move {
-            communicate.receive(|msg, src| {
-                self.parse(msg.to_string());
-            });
+            communicate
+                .receive(|msg, src| {
+                    match parser.parse(msg.to_string()) {
+                        Ok(v) => {
+                            handler(v);
+                        }
+                        Err(e) => {
+                            println!("Error handling received udp package: {}", e)
+                        }
+                    };
+                })
+                .await;
         });
+    }
+
+    pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<usize> {
+        Ok(self.communicate.send(event.serialize()).await?)
+    }
+}
+
+pub struct MainParser {
+    parsers: Vec<Box<dyn Parser + Send>>,
+}
+
+impl MainParser {
+    pub fn new() -> Self {
+        MainParser {
+            parsers: vec![Box::new(MouseMoveParser {})],
+        }
     }
 
     fn parse(&self, text: String) -> Result<Box<dyn Event>> {
@@ -115,7 +160,11 @@ impl EventHandler {
         Err(ProtocolError::ParseError)
     }
 
-    fn try_parse(&self, text: &String, parser: &Box<dyn Parser>) -> Option<Result<Box<dyn Event>>> {
+    fn try_parse(
+        &self,
+        text: &String,
+        parser: &Box<dyn Parser + Send>,
+    ) -> Option<Result<Box<dyn Event>>> {
         if !text.starts_with("M") {
             return None;
         }
