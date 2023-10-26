@@ -1,13 +1,14 @@
 use {
-    crate::communicate::Communicate,
-    std::{error, fmt},
+    crate::{communicate::Communicate, input::MouseMovement},
+    std::{error, fmt, sync::Arc},
 };
 
 type Result<T> = std::result::Result<T, ProtocolError>;
 
 #[derive(Debug)]
 pub enum ProtocolError {
-    ParserError(String, String),
+    ParserError(&'static str, String),
+    ParseError,
 }
 
 impl error::Error for ProtocolError {}
@@ -22,31 +23,102 @@ impl fmt::Display for ProtocolError {
                     parser, error
                 )
             }
+            ProtocolError::ParseError => {
+                write!(f, "No matching parser was found!")
+            }
         }
     }
 }
 
+pub trait Parser {
+    fn parse(&self, text: String) -> Result<Box<dyn Event>>;
+    fn get_prefix(&self) -> &'static str;
+}
+
 pub trait Event {
     fn serialize(&self) -> String;
-    fn parse(text: String) -> Result<Box<Self>>;
-    const IDENTIFIER: &'static str;
+}
+impl Event for MouseMovement {
+    fn serialize(&self) -> String {
+        format!("{}|{}", self.x, self.y)
+    }
 }
 
-struct MouseMove {
-    movement: MouseMovement,
-}
+struct MouseMoveParser {}
 
-impl Event for MouseMove {
-    const IDENTIFIER: &'static str = "M";
-    fn parse(text: String) -> Result<Box<Self>> {
-        Ok(Box::new(MouseMove {
-            movement: MouseMovement { x: 0, y: 0 },
-        }))
+impl Parser for MouseMoveParser {
+    fn parse(&self, text: String) -> Result<Box<dyn Event>> {
+        let mut split = text.split("|");
+        let x: i32;
+        let y: i32;
+        match (split.next(), split.next()) {
+            (Some(x_t), Some(y_t)) => match (x_t.parse::<i32>(), y_t.parse::<i32>()) {
+                (Ok(x_p), Ok(y_p)) => {
+                    x = x_p;
+                    y = y_p;
+                }
+                _ => {
+                    return Err(ProtocolError::ParserError(
+                        "MouseMove",
+                        String::from("Number parsing"),
+                    ));
+                }
+            },
+            _ => {
+                return Err(ProtocolError::ParserError(
+                    "MouseMove",
+                    String::from("Number amount"),
+                ));
+            }
+        };
+
+        Ok(Box::new(MouseMovement { x, y }))
+    }
+
+    fn get_prefix(&self) -> &'static str {
+        "M"
     }
 }
 
 pub struct EventHandler {
-    communicate: Communicate,
+    communicate: Arc<Communicate>,
+    parsers: Vec<Box<dyn Parser>>,
 }
 
-impl EventHandler {}
+impl EventHandler {
+    pub fn new(communicate: Arc<Communicate>) -> Self {
+        EventHandler {
+            communicate,
+            parsers: vec![Box::new(MouseMoveParser {})],
+        }
+    }
+
+    pub fn await_event(&self, handler: impl Fn(Box<dyn Event>) -> ()) {
+        let communicate = self.communicate.clone();
+        tokio::spawn(async move {
+            communicate.receive(|msg, src| {
+                self.parse(msg.to_string());
+            });
+        });
+    }
+
+    fn parse(&self, text: String) -> Result<Box<dyn Event>> {
+        for parser in self.parsers.iter() {
+            match self.try_parse(&text, parser) {
+                Some(v) => {
+                    return v;
+                }
+                None => {}
+            }
+        }
+
+        Err(ProtocolError::ParseError)
+    }
+
+    fn try_parse(&self, text: &String, parser: &Box<dyn Parser>) -> Option<Result<Box<dyn Event>>> {
+        if !text.starts_with("M") {
+            return None;
+        }
+        Some(parser.parse(text.clone()))
+    }
+}
