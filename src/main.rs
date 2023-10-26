@@ -1,4 +1,4 @@
-use std::{net::SocketAddrV4, str::FromStr};
+use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
 mod communicate;
 
@@ -9,7 +9,27 @@ const SENDER_PORT: u16 = 8001;
 async fn main() {
     let group_address: SocketAddrV4 =
         SocketAddrV4::from_str(GROUP_ID_PORT).expect("Invalid Group ID or Port");
-    let communicate = communicate::Communicate::new(group_address, SENDER_PORT)
-        .await
-        .unwrap();
+    let communicate = Arc::new(
+        communicate::Communicate::new(group_address, SENDER_PORT)
+            .await
+            .unwrap(),
+    );
+    let clc = communicate.clone();
+
+    let cs = Arc::new(tokio::sync::Barrier::new(2));
+    let cs_c = cs.clone();
+
+    tokio::spawn(async move {
+        communicate
+            .receive(|msg, src| {
+                println!("Received: '{}' from {}", msg, src);
+            })
+            .await;
+
+        cs.wait().await;
+    });
+
+    clc.send(String::from("Hello")).await.unwrap();
+
+    cs_c.wait().await;
 }

@@ -2,7 +2,7 @@ use {
     std::{
         error::Error,
         fmt,
-        net::{Ipv4Addr, SocketAddrV4},
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     },
     tokio::net::UdpSocket,
 };
@@ -33,8 +33,8 @@ impl From<std::io::Error> for CommunicateError {
 }
 
 pub struct Communicate {
-    send: UdpSocket,
-    receive: UdpSocket,
+    send_socket: UdpSocket,
+    receive_socket: UdpSocket,
     multicast_addr: SocketAddrV4,
 }
 
@@ -51,9 +51,36 @@ impl Communicate {
             UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, sender_port)).await?;
 
         Ok(Communicate {
-            send: send_socket,
-            receive: receive_socket,
+            send_socket,
+            receive_socket,
             multicast_addr,
         })
+    }
+
+    pub async fn send(&self, message: String) -> Result<usize> {
+        Ok(self
+            .send_socket
+            .send_to(message.as_bytes(), &self.multicast_addr)
+            .await?)
+    }
+
+    pub async fn receive(&self, callback: impl Fn(&str, SocketAddr)) {
+        let mut buf: [u8; 2024] = [0; 2024];
+        loop {
+            match self.receive_socket.recv_from(&mut buf).await {
+                Ok((amount, socket_addr)) => {
+                    let buf = &mut buf[..amount];
+                    match std::str::from_utf8(buf) {
+                        Ok(msg) => callback(msg, socket_addr),
+                        Err(e) => {
+                            println!("Error converting buffer to String: {}", e)
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("Error receiving from socket: {}", e);
+                }
+            }
+        }
     }
 }
