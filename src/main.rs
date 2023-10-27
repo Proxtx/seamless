@@ -3,6 +3,7 @@ use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 mod communicate;
 mod input;
 mod protocol;
+use enigo::MouseControllable;
 
 const GROUP_ID_PORT: &str = "225.0.4.16:31725";
 const SENDER_PORT: u16 = 31726;
@@ -25,8 +26,8 @@ async fn main() {
         d_h.event_listener(|event| match event {
             protocol::Events::MouseMovement(v) => {
                 println!("{}|{}", v.x, v.y);
-                //let mut eng = enigo::Enigo::new();
-                //eng.mouse_move_to(v.x,v.y);
+                let mut eng = enigo::Enigo::new();
+                eng.mouse_move_to(v.x, v.y);
             }
         })
         .await;
