@@ -74,11 +74,11 @@ impl Communicate {
         .await?;
         global_socket.join_multicast_v4(*multicast_addr.ip(), Ipv4Addr::UNSPECIFIED)?;
 
-        let send_socket =
+        let main_socket =
             UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, main_port)).await?;
 
         let mut instance = Communicate {
-            main_socket: Arc::new(send_socket),
+            main_socket: Arc::new(main_socket),
             global_socket: Arc::new(global_socket),
             multicast_addr,
             devices: Arc::new(Mutex::new(Vec::new())),
