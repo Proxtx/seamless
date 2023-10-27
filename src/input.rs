@@ -29,6 +29,14 @@ impl MouseInputReceiver {
         }
     }
 
+    pub fn get_current_pos(&self) -> MouseMovement {
+        let coords = self.mouse.get_mouse().coords;
+        MouseMovement {
+            x: coords.0,
+            y: coords.1,
+        }
+    }
+
     pub fn mouse_movement_listener(&self, callback: impl Fn(MouseMovement) -> ()) {
         let mut last_pos = (0, 0);
 
