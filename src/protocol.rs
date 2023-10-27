@@ -124,7 +124,7 @@ impl EventHandler {
             .await;
     }
 
-    pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<usize> {
+    pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<()> {
         Ok(self.communicate.send(event.serialize()).await?)
     }
 }

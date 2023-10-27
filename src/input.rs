@@ -36,7 +36,7 @@ impl MouseInputReceiver {
             let pos = self.mouse.get_mouse().coords;
             let comparison = self.compare_positions(&last_pos, &pos);
             if comparison.movement() {
-                callback(comparison);
+                callback(MouseMovement { x: pos.0, y: pos.1 });
             }
 
             last_pos = pos;
