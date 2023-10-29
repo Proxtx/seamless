@@ -7,6 +7,7 @@ use {
         time::{Duration, Instant},
     },
     tokio::{net::UdpSocket, sync::Mutex},
+    uuid::Uuid,
 };
 
 type Result<T> = std::result::Result<T, CommunicateError>;
@@ -63,6 +64,8 @@ pub struct Communicate {
     multicast_addr: SocketAddrV4,
     devices: Arc<Mutex<Vec<ReceiverDevice>>>,
     broadcasting_addr: bool,
+    self_id: Uuid,
+    self_addr: Arc<Mutex<Option<SocketAddrV4>>>,
 }
 
 impl Communicate {
@@ -83,10 +86,12 @@ impl Communicate {
             multicast_addr,
             devices: Arc::new(Mutex::new(Vec::new())),
             broadcasting_addr: false,
+            self_id: Uuid::new_v4(),
+            self_addr: Arc::new(Mutex::new(None)),
         };
 
-        Communicate::broadcast_address(&mut instance);
         Communicate::devices_updater(&mut instance);
+        Communicate::broadcast_address(&mut instance);
 
         Ok(instance)
     }
@@ -124,12 +129,38 @@ impl Communicate {
     fn devices_updater(&mut self) {
         let devices = self.devices.clone();
         let global_socket = self.global_socket.clone();
+        let self_id = self.self_id.clone();
+        let self_addr = self.self_addr.clone();
 
         tokio::spawn(async move {
             let mut buf: [u8; 2024] = [0; 2024];
             loop {
                 match global_socket.recv_from(&mut buf).await {
-                    Ok((_, src)) => {
+                    Ok((amount, src)) => {
+                        let buf = &mut buf[..amount];
+                        let text = match std::str::from_utf8(buf) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                println!("Unable to read devices updater string. {}", e);
+                                continue;
+                            }
+                        };
+                        let uuid = match Uuid::parse_str(text) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                println!("Received a wrong uuid! {}", e);
+                                continue;
+                            }
+                        };
+                        if uuid == self_id {
+                            let mut lock = self_addr.lock().await;
+                            match src {
+                                SocketAddr::V4(src) => *lock = Some(src),
+                                _ => println!("Received self_address as V6! Invalid!"),
+                            }
+                            println!("Got own address! {:?}", lock);
+                            continue;
+                        }
                         let mut devices = devices.lock().await;
                         let clean_devices = Communicate::clean_devices(devices.to_vec());
                         *devices = clean_devices;
@@ -173,10 +204,14 @@ impl Communicate {
 
         let sender_clone = self.main_socket.clone();
         let addr = self.multicast_addr.clone();
+        let id = self.self_id.clone();
 
         tokio::spawn(async move {
             loop {
-                if let Err(e) = sender_clone.send_to(format!(".").as_bytes(), addr).await {
+                if let Err(e) = sender_clone
+                    .send_to(format!("{}", id).as_bytes(), addr)
+                    .await
+                {
                     println!("Error broadcasting own address: {}", e)
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;

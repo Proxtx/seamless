@@ -1,7 +1,9 @@
 use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
 mod communicate;
-mod gui;
+//maybe later
+//mod gui;
+mod display;
 mod input;
 mod protocol;
 
@@ -14,5 +16,9 @@ use crate::protocol::Event;
 
 #[tokio::main]
 async fn main() {
-    gui::GUI::new();
+    let barr = tokio::sync::Barrier::new(2);
+    let comms =
+        communicate::Communicate::new(SocketAddrV4::from_str(GROUP_ID_PORT).unwrap(), SENDER_PORT);
+
+    barr.wait().await;
 }
