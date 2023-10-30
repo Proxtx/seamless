@@ -18,7 +18,8 @@ use crate::protocol::Event;
 async fn main() {
     let barr = tokio::sync::Barrier::new(2);
     let comms =
-        communicate::Communicate::new(SocketAddrV4::from_str(GROUP_ID_PORT).unwrap(), SENDER_PORT);
+        communicate::Communicate::new(SocketAddrV4::from_str(GROUP_ID_PORT).unwrap(), SENDER_PORT)
+            .await;
 
     barr.wait().await;
 }

@@ -158,7 +158,6 @@ impl Communicate {
                                 SocketAddr::V4(src) => *lock = Some(src),
                                 _ => println!("Received self_address as V6! Invalid!"),
                             }
-                            println!("Got own address! {:?}", lock);
                             continue;
                         }
                         let mut devices = devices.lock().await;
