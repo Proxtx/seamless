@@ -1,10 +1,48 @@
-use display_info::DisplayInfo;
-use std::net::SocketAddrV4;
+use {
+    display_info::DisplayInfo,
+    std::{error, fmt, net::SocketAddrV4},
+};
+
+type Result<T> = std::result::Result<T, DisplayError>;
+
+#[derive(Debug)]
+enum DisplayError {
+    DisplayFetchError,
+}
+
+impl error::Error for DisplayError {}
+
+impl fmt::Display for DisplayError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DisplayError::DisplayFetchError => write!(f, "Was unable to fetch displays"),
+        }
+    }
+}
 
 #[derive(serde::Serialize)]
 struct ClientDisplays {
     client: Client,
     displays: Vec<Display>, //ordered
+}
+
+impl ClientDisplays {
+    pub fn new_local() -> Result<Self> {
+        let mut info = match DisplayInfo::all() {
+            Ok(v) => v,
+            Err(_e) => return Err(DisplayError::DisplayFetchError),
+        };
+        info.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut client_displays: Vec<Display> = Vec::new();
+        for display in info.into_iter() {
+            client_displays.push(display.into());
+        }
+
+        Ok(Self {
+            client: Client::IsSelf,
+            displays: client_displays,
+        })
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -20,4 +58,16 @@ struct Display {
     pub client_y: i32,
     pub with: u32,
     pub height: u32,
+}
+
+impl From<DisplayInfo> for Display {
+    fn from(value: DisplayInfo) -> Self {
+        Self {
+            id: value.id,
+            client_x: value.x,
+            client_y: value.y,
+            with: value.width,
+            height: value.height,
+        }
+    }
 }
