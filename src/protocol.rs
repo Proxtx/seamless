@@ -114,6 +114,10 @@ impl ClientDisplayParser {
     fn parse(&self, text: String) -> Result<ClientDisplays> {
         Ok(serde_json::from_str::<ClientDisplays>(&text)?)
     }
+
+    fn get_prefix(&self) -> &'static str {
+        "D"
+    }
 }
 
 pub struct EventHandler {
@@ -156,16 +160,19 @@ impl EventHandler {
 
 pub enum Events {
     MouseMovement(MouseMovement),
+    ClientDisplays(ClientDisplays),
 }
 
 pub struct MainParser {
     mouse_movement_parser: MouseMoveParser,
+    client_displays_parser: ClientDisplayParser,
 }
 
 impl MainParser {
     pub fn new() -> Self {
         MainParser {
             mouse_movement_parser: MouseMoveParser {},
+            client_displays_parser: ClientDisplayParser {},
         }
     }
 
@@ -175,6 +182,12 @@ impl MainParser {
             self.prepare_text(self.mouse_movement_parser.get_prefix(), &mut text);
             Ok(Events::MouseMovement(
                 self.mouse_movement_parser.parse(text)?,
+            ))
+        } else if (text.starts_with(self.client_displays_parser.get_prefix())) {
+            let mut text = text.clone();
+            self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
+            Ok(Events::ClientDisplays(
+                self.client_displays_parser.parse(text)?,
             ))
         } else {
             Err(ProtocolError::ParseError)
