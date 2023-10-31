@@ -36,7 +36,7 @@ impl From<std::io::Error> for CommunicateError {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ReceiverDevice {
+pub struct ReceiverDevice {
     pub updated: Instant,
     pub socket_addr: SocketAddrV4,
 }

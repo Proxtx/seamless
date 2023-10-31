@@ -1,6 +1,8 @@
 use {
+    crate::communicate::ReceiverDevice,
     display_info::DisplayInfo,
-    std::{error, fmt, net::SocketAddrV4},
+    std::{error, fmt, net::SocketAddrV4, sync::Arc},
+    tokio::sync::Mutex,
 };
 
 type Result<T> = std::result::Result<T, DisplayError>;
@@ -69,5 +71,43 @@ impl From<DisplayInfo> for Display {
             with: value.width,
             height: value.height,
         }
+    }
+}
+
+struct DisplayManager {
+    clients: Vec<ClientDisplays>,
+    own_ip: Option<SocketAddrV4>,
+}
+
+impl DisplayManager {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            clients: vec![ClientDisplays::new_local()?],
+            own_ip: None,
+        })
+    }
+
+    pub fn received_displays(&mut self, client_displays: ClientDisplays) {}
+
+    pub fn filter_clients(&mut self, connected_clients: &Vec<ReceiverDevice>) {
+        self.clients = *self
+            .clients
+            .into_iter()
+            .filter(|v| match v.client {
+                Client::IsSelf => return true,
+                Client::IsNetworked(addr) => {
+                    for client in connected_clients {
+                        if client.socket_addr == addr {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            })
+            .collect();
+    }
+
+    pub fn set_own_ip(&mut self, own_ip: SocketAddrV4) {
+        self.own_ip = Some(own_ip);
     }
 }
