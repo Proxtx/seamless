@@ -1,6 +1,7 @@
 use {
     crate::{
         communicate::{Communicate, CommunicateError},
+        display::ClientDisplays,
         input::MouseMovement,
     },
     std::{error, fmt, sync::Arc},
@@ -13,6 +14,7 @@ pub enum ProtocolError {
     ParserError(&'static str, String),
     ParseError,
     CommunicateError(CommunicateError),
+    SerdeSerializationError(serde_json::error::Error),
 }
 
 impl error::Error for ProtocolError {}
@@ -33,6 +35,9 @@ impl fmt::Display for ProtocolError {
             ProtocolError::CommunicateError(error) => {
                 write!(f, "Communication Error: {}", error)
             }
+            ProtocolError::SerdeSerializationError(e) => {
+                write!(f, "Serde serialization error: {}", e)
+            }
         }
     }
 }
@@ -43,15 +48,27 @@ impl From<CommunicateError> for ProtocolError {
     }
 }
 
+impl From<serde_json::error::Error> for ProtocolError {
+    fn from(value: serde_json::error::Error) -> Self {
+        ProtocolError::SerdeSerializationError(value)
+    }
+}
+
 pub trait Event
 where
     Self: Send + Sync,
 {
-    fn serialize(&self) -> String;
+    fn serialize(&self) -> Result<String>;
 }
 impl Event for MouseMovement {
-    fn serialize(&self) -> String {
-        format!("M{}|{}", self.x, self.y)
+    fn serialize(&self) -> Result<String> {
+        Ok(format!("M{}|{}", self.x, self.y))
+    }
+}
+
+impl Event for ClientDisplays {
+    fn serialize(&self) -> Result<String> {
+        Ok(format!("D{}", serde_json::to_string(self)?))
     }
 }
 
@@ -91,6 +108,14 @@ impl MouseMoveParser {
     }
 }
 
+struct ClientDisplayParser {}
+
+impl ClientDisplayParser {
+    fn parse(&self, text: String) -> Result<ClientDisplays> {
+        Ok(serde_json::from_str::<ClientDisplays>(&text)?)
+    }
+}
+
 pub struct EventHandler {
     communicate: Arc<Communicate>,
     parser: Arc<MainParser>,
@@ -125,7 +150,7 @@ impl EventHandler {
     }
 
     pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<()> {
-        Ok(self.communicate.send(event.serialize()).await?)
+        Ok(self.communicate.send(event.serialize()?).await?)
     }
 }
 

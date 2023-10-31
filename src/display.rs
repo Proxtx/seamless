@@ -6,7 +6,7 @@ use {
 type Result<T> = std::result::Result<T, DisplayError>;
 
 #[derive(Debug)]
-enum DisplayError {
+pub enum DisplayError {
     DisplayFetchError,
 }
 
@@ -20,8 +20,8 @@ impl fmt::Display for DisplayError {
     }
 }
 
-#[derive(serde::Serialize)]
-struct ClientDisplays {
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ClientDisplays {
     client: Client,
     displays: Vec<Display>, //ordered
 }
@@ -45,13 +45,13 @@ impl ClientDisplays {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 enum Client {
     IsSelf,
     IsNetworked(SocketAddrV4),
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct Display {
     pub id: u32,
     pub client_x: i32,
