@@ -6,6 +6,11 @@ pub struct MouseInputReceiver {
     mouse: DeviceState,
 }
 
+pub struct MousePosition {
+    pub x: i32,
+    pub y: i32,
+}
+
 #[derive(Debug)]
 pub struct MouseMovement {
     pub x: i32,

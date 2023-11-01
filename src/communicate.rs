@@ -1,4 +1,5 @@
 use {
+    crate::display::DisplayManager,
     std::{
         error::Error,
         fmt,
@@ -19,7 +20,7 @@ pub enum CommunicateError {
 
 impl fmt::Display for CommunicateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match self {
             CommunicateError::SocketCreationError(ref err) => {
                 write!(f, "IO Error: {}", err.to_string())
             }
@@ -66,16 +67,21 @@ pub struct Communicate {
     broadcasting_addr: bool,
     self_id: Uuid,
     self_addr: Arc<Mutex<Option<SocketAddrV4>>>,
+    display_manager: Arc<Mutex<DisplayManager>>,
 }
 
 impl Communicate {
-    pub async fn new(multicast_addr: SocketAddrV4, main_port: u16) -> Result<Communicate> {
+    pub async fn new(
+        multicast_addr: SocketAddrV4,
+        main_port: u16,
+        display_manager: Arc<Mutex<DisplayManager>>,
+    ) -> Result<Communicate> {
         let global_socket = UdpSocket::bind(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             multicast_addr.port(),
         ))
         .await?;
-        global_socket.join_multicast_v4(*multicast_addr.ip(), Ipv4Addr::UNSPECIFIED)?;
+        global_socket.join_multicast_v4(multicast_addr.ip().clone(), Ipv4Addr::UNSPECIFIED)?;
 
         let main_socket =
             UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, main_port)).await?;
@@ -88,6 +94,7 @@ impl Communicate {
             broadcasting_addr: false,
             self_id: Uuid::new_v4(),
             self_addr: Arc::new(Mutex::new(None)),
+            display_manager,
         };
 
         Communicate::devices_updater(&mut instance);
@@ -127,10 +134,11 @@ impl Communicate {
     }
 
     fn devices_updater(&mut self) {
-        let devices = self.devices.clone();
-        let global_socket = self.global_socket.clone();
+        let devices = self.devices;
+        let global_socket = self.global_socket;
         let self_id = self.self_id.clone();
-        let self_addr = self.self_addr.clone();
+        let self_addr = self.self_addr;
+        let display_manager = self.display_manager;
 
         tokio::spawn(async move {
             let mut buf: [u8; 2024] = [0; 2024];
@@ -155,7 +163,10 @@ impl Communicate {
                         if uuid == self_id {
                             let mut lock = self_addr.lock().await;
                             match src {
-                                SocketAddr::V4(src) => *lock = Some(src),
+                                SocketAddr::V4(src) => {
+                                    display_manager.lock().await.set_own_ip(src.clone());
+                                    *lock = Some(src)
+                                }
                                 _ => println!("Received self_address as V6! Invalid!"),
                             }
                             continue;
@@ -181,6 +192,8 @@ impl Communicate {
                             }
                             _ => {}
                         }
+
+                        display_manager.lock().await.filter_clients(&devices);
                     }
                     Err(e) => {
                         println!("Error reading Socket: {}", e)
@@ -201,16 +214,13 @@ impl Communicate {
 
         self.broadcasting_addr = true;
 
-        let sender_clone = self.main_socket.clone();
+        let sender = self.main_socket;
         let addr = self.multicast_addr.clone();
         let id = self.self_id.clone();
 
         tokio::spawn(async move {
             loop {
-                if let Err(e) = sender_clone
-                    .send_to(format!("{}", id).as_bytes(), addr)
-                    .await
-                {
+                if let Err(e) = sender.send_to(format!("{}", id).as_bytes(), addr).await {
                     println!("Error broadcasting own address: {}", e)
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
