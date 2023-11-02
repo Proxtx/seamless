@@ -52,18 +52,9 @@ impl ClientDisplays {
             displays: client_displays,
         })
     }
-
-    pub fn display_with(&self) -> u32 {
-        let mut res = 0;
-        for display in self.displays {
-            res += display.width;
-        }
-
-        res
-    }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 enum Client {
     IsSelf,
     IsNetworked(SocketAddrV4),
@@ -187,24 +178,72 @@ impl DisplayManager {
         &self,
         mouse_position: MousePosition,
     ) -> Result<ClientMousePosition> {
-        let current_x: u32 = 0;
-        let found_client: Option<&ClientDisplays> = None;
-        for client in self.clients {
-            let display_width = client.display_with();
-            if current_x + display_width > mouse_position.x as u32 {
-                found_client = Some(&client);
-                break;
+        struct FoundDisplay<'a> {
+            pub client_displays: &'a ClientDisplays,
+            pub display: &'a Display,
+            pub display_position: MousePosition,
+        }
+
+        impl<'a> FoundDisplay<'a> {
+            pub fn new(
+                client_displays: &ClientDisplays,
+                display_index: usize,
+                display_position: MousePosition,
+            ) -> Result<FoundDisplay> {
+                let display = client_displays.displays.get(display_index).unwrap(); //is ok because i just gave you my index
+                if display_position.x < 0
+                    || display_position.y < 0
+                    || display.width < display_position.x as u32
+                    || display.height < display_position.y as u32
+                {
+                    return Err(DisplayError::InvalidMousePosition);
+                }
+
+                Ok(FoundDisplay {
+                    client_displays,
+                    display,
+                    display_position,
+                })
+            }
+
+            pub fn get_local_position(&self) -> MousePosition {
+                MousePosition {
+                    x: self.display.client_x + self.display_position.x,
+                    y: self.display.client_y + self.display_position.y,
+                }
             }
         }
 
-        let client = match found_client {
+        let mut current_x: u32 = 0;
+        let mut found_client: Option<FoundDisplay> = None;
+        'client_loop: for client in self.clients.iter() {
+            for (index, display) in client.displays.iter().enumerate() {
+                if current_x + display.width > mouse_position.x as u32 {
+                    found_client = Some(FoundDisplay::new(
+                        client,
+                        index,
+                        MousePosition {
+                            x: mouse_position.x - current_x as i32,
+                            y: mouse_position.y,
+                        },
+                    )?);
+                    break 'client_loop;
+                }
+                current_x += display.width;
+            }
+        }
+
+        let result = match found_client {
             Some(v) => v,
             None => {
                 return Err(DisplayError::InvalidMousePosition);
             }
         };
 
-        Ok(())
+        Ok(ClientMousePosition {
+            client: result.client_displays.client.clone(),
+            mouse_position: result.get_local_position(),
+        })
     }
 }
 

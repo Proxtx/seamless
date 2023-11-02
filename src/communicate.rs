@@ -134,11 +134,11 @@ impl Communicate {
     }
 
     fn devices_updater(&mut self) {
-        let devices = self.devices;
-        let global_socket = self.global_socket;
+        let devices = self.devices.clone();
+        let global_socket = self.global_socket.clone();
         let self_id = self.self_id.clone();
-        let self_addr = self.self_addr;
-        let display_manager = self.display_manager;
+        let self_addr = self.self_addr.clone();
+        let display_manager = self.display_manager.clone();
 
         tokio::spawn(async move {
             let mut buf: [u8; 2024] = [0; 2024];
@@ -214,7 +214,7 @@ impl Communicate {
 
         self.broadcasting_addr = true;
 
-        let sender = self.main_socket;
+        let sender = self.main_socket.clone();
         let addr = self.multicast_addr.clone();
         let id = self.self_id.clone();
 
