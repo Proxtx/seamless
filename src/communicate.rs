@@ -65,7 +65,7 @@ pub trait ClientUpdates
 where
     Self: Sync + Send,
 {
-    async fn update(&self, devices: &Vec<ReceiverDevice>) {}
+    async fn update(&self, devices: &Vec<ReceiverDevice>);
 }
 
 pub struct Communicate {

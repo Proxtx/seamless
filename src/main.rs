@@ -72,7 +72,11 @@ async fn main() {
     prot.event_listener(move |v| match v {
         protocol::Events::ClientDisplays(v) => {
             let disp = disp2.clone();
-            tokio::spawn(async move { disp.lock().await.received_displays(v).unwrap() });
+            tokio::spawn(async move {
+                let mut lock = disp.lock().await;
+                lock.received_displays(v).unwrap();
+                println!("{:?}", lock);
+            });
         }
         protocol::Events::MouseMovement(v) => {
             println!("{:?}", v)

@@ -81,6 +81,7 @@ impl From<DisplayInfo> for Display {
     }
 }
 
+#[derive(Debug)]
 pub struct DisplayManager {
     clients: Vec<ClientDisplays>,
     own_ip: Option<SocketAddrV4>,
