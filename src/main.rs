@@ -65,12 +65,14 @@ async fn main() {
         event_handler: prot.clone(),
     };
     let prot2 = prot.clone();
+    let disp2 = displays.clone();
 
     comms.assign_updates(Box::new(client_updates)).await;
 
     prot.event_listener(move |v| match v {
         protocol::Events::ClientDisplays(v) => {
-            println!("{:?}", v)
+            let disp = disp2.clone();
+            tokio::spawn(async move { disp.lock().await.received_displays(v).unwrap() });
         }
         protocol::Events::MouseMovement(v) => {
             println!("{:?}", v)
