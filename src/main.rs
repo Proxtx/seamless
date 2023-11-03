@@ -74,7 +74,12 @@ async fn main() {
             let disp = disp2.clone();
             tokio::spawn(async move {
                 let mut lock = disp.lock().await;
-                lock.received_displays(v).unwrap();
+                match lock.received_displays(v) {
+                    Err(e) => {
+                        println!("Unable to add received display: {}", e);
+                    }
+                    _ => {}
+                };
                 println!("{:?}", lock);
             });
         }
@@ -89,11 +94,19 @@ async fn main() {
                 match own_ip {
                     Some(v2) => {
                         if v2.ip() == &v.client_ip {
-                            prot.emit_event(Box::new(
-                                display::ClientDisplays::new_local().unwrap(),
-                            ))
-                            .await
-                            .unwrap();
+                            let own_displays = match display::ClientDisplays::new_local() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    println!("Error generating own display: {}", e);
+                                    return;
+                                }
+                            };
+                            match prot.emit_event(Box::new(own_displays)).await {
+                                Err(e) => {
+                                    println!("Unable to send own display: {}", e)
+                                }
+                                _ => {}
+                            }
                         }
                     }
                     None => {
