@@ -159,7 +159,7 @@ impl DisplayManager {
                 Client::IsSelf => own_ip,
             };
 
-            let b_ipv4 = match a.client {
+            let b_ipv4 = match b.client {
                 Client::IsNetworked(v) => v,
                 Client::IsSelf => own_ip,
             };
