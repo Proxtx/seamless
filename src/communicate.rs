@@ -216,9 +216,12 @@ impl Communicate {
 
                         display_manager.lock().await.filter_clients(&devices);
 
+                        let cl_devices = devices.clone();
+                        drop(devices);
+
                         match &*updates.lock().await {
                             Some(v) => {
-                                v.update(&devices).await;
+                                v.update(&cl_devices).await;
                             }
                             None => {
                                 println!(
