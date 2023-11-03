@@ -31,7 +31,7 @@ impl fmt::Display for DisplayError {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ClientDisplays {
-    client: Client,
+    pub client: Client,
     displays: Vec<Display>, //ordered
 }
 
@@ -55,7 +55,7 @@ impl ClientDisplays {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-enum Client {
+pub enum Client {
     IsSelf,
     IsNetworked(SocketAddrV4),
 }

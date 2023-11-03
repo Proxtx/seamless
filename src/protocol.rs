@@ -1,10 +1,15 @@
 use {
     crate::{
         communicate::{Communicate, CommunicateError},
-        display::ClientDisplays,
+        display::{Client, ClientDisplays},
         input::MouseMovement,
     },
-    std::{error, fmt, net::Ipv4Addr, str::FromStr, sync::Arc},
+    std::{
+        error, fmt,
+        net::{Ipv4Addr, SocketAddrV4},
+        str::FromStr,
+        sync::Arc,
+    },
 };
 
 type Result<T> = std::result::Result<T, ProtocolError>;
@@ -122,8 +127,10 @@ impl MouseMoveParser {
 struct ClientDisplayParser {}
 
 impl ClientDisplayParser {
-    fn parse(&self, text: String) -> Result<ClientDisplays> {
-        Ok(serde_json::from_str::<ClientDisplays>(&text)?)
+    fn parse(&self, text: String, src: SocketAddrV4) -> Result<ClientDisplays> {
+        let mut client_display = serde_json::from_str::<ClientDisplays>(&text)?;
+        client_display.client = Client::IsNetworked(src);
+        Ok(client_display)
     }
 
     fn get_prefix(&self) -> &'static str {
@@ -173,8 +180,15 @@ impl EventHandler {
         let communicate = self.communicate.clone();
         let parser = self.parser.clone();
         communicate
-            .receive(|msg, _src| {
-                match parser.parse(msg.to_string()) {
+            .receive(|msg, src| {
+                let addr = match src {
+                    std::net::SocketAddr::V4(v) => v,
+                    std::net::SocketAddr::V6(_) => {
+                        println!("Received data from invalid addr");
+                        return;
+                    }
+                };
+                match parser.parse(msg.to_string(), addr) {
                     Ok(v) => {
                         handler(v);
                     }
@@ -212,7 +226,7 @@ impl MainParser {
         }
     }
 
-    fn parse(&self, mut text: String) -> Result<Events> {
+    fn parse(&self, mut text: String, src: SocketAddrV4) -> Result<Events> {
         return if text.starts_with(self.mouse_movement_parser.get_prefix()) {
             self.prepare_text(self.mouse_movement_parser.get_prefix(), &mut text);
             Ok(Events::MouseMovement(
@@ -221,7 +235,7 @@ impl MainParser {
         } else if text.starts_with(self.client_displays_parser.get_prefix()) {
             self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
             Ok(Events::ClientDisplays(
-                self.client_displays_parser.parse(text)?,
+                self.client_displays_parser.parse(text, src)?,
             ))
         } else if text.starts_with(self.request_displays_parser.get_prefix()) {
             self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
