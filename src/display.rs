@@ -245,6 +245,35 @@ impl DisplayManager {
             mouse_position: result.get_local_position(),
         })
     }
+
+    pub fn get_missing_displays<'a>(
+        &self,
+        devices: &'a Vec<ReceiverDevice>,
+    ) -> Vec<&'a ReceiverDevice> {
+        let mut result = Vec::new();
+
+        for device in devices {
+            let mut found = false;
+
+            for client in self.clients.iter() {
+                match client.client {
+                    Client::IsNetworked(ip) => {
+                        if ip == device.socket_addr {
+                            found = true;
+                            break;
+                        }
+                    }
+                    Client::IsSelf => {}
+                }
+            }
+
+            if !found {
+                result.push(device);
+            }
+        }
+
+        result
+    }
 }
 
 struct ClientMousePosition {

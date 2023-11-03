@@ -1,5 +1,6 @@
 use {
     crate::display::DisplayManager,
+    async_trait::async_trait,
     std::{
         error::Error,
         fmt,
@@ -59,6 +60,14 @@ impl ReceiverDevice {
     }
 }
 
+#[async_trait]
+pub trait ClientUpdates
+where
+    Self: Sync + Send,
+{
+    async fn update(&self, devices: &Vec<ReceiverDevice>) {}
+}
+
 pub struct Communicate {
     main_socket: Arc<UdpSocket>,
     global_socket: Arc<UdpSocket>,
@@ -68,6 +77,7 @@ pub struct Communicate {
     self_id: Uuid,
     self_addr: Arc<Mutex<Option<SocketAddrV4>>>,
     display_manager: Arc<Mutex<DisplayManager>>,
+    updates: Arc<Mutex<Option<Box<dyn ClientUpdates>>>>,
 }
 
 impl Communicate {
@@ -95,12 +105,17 @@ impl Communicate {
             self_id: Uuid::new_v4(),
             self_addr: Arc::new(Mutex::new(None)),
             display_manager,
+            updates: Arc::new(Mutex::new(None)),
         };
 
         Communicate::devices_updater(&mut instance);
         Communicate::broadcast_address(&mut instance);
 
         Ok(instance)
+    }
+
+    pub async fn get_own_ip(&self) -> Option<SocketAddrV4> {
+        self.self_addr.lock().await.clone()
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
@@ -111,6 +126,11 @@ impl Communicate {
         }
 
         Ok(())
+    }
+
+    pub async fn assign_updates(&self, updates: Box<dyn ClientUpdates>) {
+        let mut lock = self.updates.lock().await;
+        *lock = Some(updates);
     }
 
     pub async fn receive(&self, callback: impl Fn(&str, SocketAddr)) {
@@ -139,6 +159,7 @@ impl Communicate {
         let self_id = self.self_id.clone();
         let self_addr = self.self_addr.clone();
         let display_manager = self.display_manager.clone();
+        let updates = self.updates.clone();
 
         tokio::spawn(async move {
             let mut buf: [u8; 2024] = [0; 2024];
@@ -194,6 +215,17 @@ impl Communicate {
                         }
 
                         display_manager.lock().await.filter_clients(&devices);
+
+                        match &*updates.lock().await {
+                            Some(v) => {
+                                v.update(&devices).await;
+                            }
+                            None => {
+                                println!(
+                                    "Error self.updates is none! This should not happen. Oh no!"
+                                )
+                            }
+                        }
                     }
                     Err(e) => {
                         println!("Error reading Socket: {}", e)

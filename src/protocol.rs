@@ -4,7 +4,7 @@ use {
         display::ClientDisplays,
         input::MouseMovement,
     },
-    std::{error, fmt, sync::Arc},
+    std::{error, fmt, net::Ipv4Addr, str::FromStr, sync::Arc},
 };
 
 type Result<T> = std::result::Result<T, ProtocolError>;
@@ -54,6 +54,11 @@ impl From<serde_json::error::Error> for ProtocolError {
     }
 }
 
+#[derive(Debug)]
+pub struct RequestDisplays {
+    pub client_ip: Ipv4Addr,
+}
+
 pub trait Event
 where
     Self: Send + Sync,
@@ -69,6 +74,12 @@ impl Event for MouseMovement {
 impl Event for ClientDisplays {
     fn serialize(&self) -> Result<String> {
         Ok(format!("D{}", serde_json::to_string(self)?))
+    }
+}
+
+impl Event for RequestDisplays {
+    fn serialize(&self) -> Result<String> {
+        Ok(format!("R{}", self.client_ip))
     }
 }
 
@@ -120,6 +131,28 @@ impl ClientDisplayParser {
     }
 }
 
+struct RequestDisplaysParser {}
+
+impl RequestDisplaysParser {
+    fn parse(&self, text: String) -> Result<RequestDisplays> {
+        Ok(RequestDisplays {
+            client_ip: match Ipv4Addr::from_str(&text) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(ProtocolError::ParserError(
+                        "RequestDisplaysParser",
+                        e.to_string(),
+                    ));
+                }
+            },
+        })
+    }
+
+    fn get_prefix(&self) -> &'static str {
+        "R"
+    }
+}
+
 pub struct EventHandler {
     communicate: Arc<Communicate>,
     parser: Arc<MainParser>,
@@ -161,11 +194,13 @@ impl EventHandler {
 pub enum Events {
     MouseMovement(MouseMovement),
     ClientDisplays(ClientDisplays),
+    RequestDisplays(RequestDisplays),
 }
 
 pub struct MainParser {
     mouse_movement_parser: MouseMoveParser,
     client_displays_parser: ClientDisplayParser,
+    request_displays_parser: RequestDisplaysParser,
 }
 
 impl MainParser {
@@ -173,21 +208,25 @@ impl MainParser {
         MainParser {
             mouse_movement_parser: MouseMoveParser {},
             client_displays_parser: ClientDisplayParser {},
+            request_displays_parser: RequestDisplaysParser {},
         }
     }
 
-    fn parse(&self, text: String) -> Result<Events> {
+    fn parse(&self, mut text: String) -> Result<Events> {
         return if text.starts_with(self.mouse_movement_parser.get_prefix()) {
-            let mut text = text.clone();
             self.prepare_text(self.mouse_movement_parser.get_prefix(), &mut text);
             Ok(Events::MouseMovement(
                 self.mouse_movement_parser.parse(text)?,
             ))
-        } else if (text.starts_with(self.client_displays_parser.get_prefix())) {
-            let mut text = text.clone();
+        } else if text.starts_with(self.client_displays_parser.get_prefix()) {
             self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
             Ok(Events::ClientDisplays(
                 self.client_displays_parser.parse(text)?,
+            ))
+        } else if text.starts_with(self.request_displays_parser.get_prefix()) {
+            self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
+            Ok(Events::RequestDisplays(
+                self.request_displays_parser.parse(text)?,
             ))
         } else {
             Err(ProtocolError::ParseError)
