@@ -1,14 +1,34 @@
-#[cfg(feature = "send_mouse")]
-use device_query::{DeviceQuery, DeviceState};
+use {
+    device_query::{DeviceQuery, DeviceState},
+    std::ops,
+};
 
-#[cfg(feature = "send_mouse")]
 pub struct MouseInputReceiver {
     mouse: DeviceState,
 }
 
+#[derive(Debug, Clone)]
 pub struct MousePosition {
     pub x: i32,
     pub y: i32,
+}
+
+impl ops::Add<MouseMovement> for MousePosition {
+    type Output = MousePosition;
+
+    fn add(self, rhs: MouseMovement) -> Self::Output {
+        MousePosition {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl ops::AddAssign<MouseMovement> for MousePosition {
+    fn add_assign(&mut self, rhs: MouseMovement) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
 }
 
 #[derive(Debug)]
@@ -26,19 +46,10 @@ impl MouseMovement {
     }
 }
 
-#[cfg(feature = "send_mouse")]
 impl MouseInputReceiver {
     pub fn new() -> Self {
         MouseInputReceiver {
             mouse: DeviceState::new(),
-        }
-    }
-
-    pub fn get_current_pos(&self) -> MouseMovement {
-        let coords = self.mouse.get_mouse().coords;
-        MouseMovement {
-            x: coords.0,
-            y: coords.1,
         }
     }
 
@@ -49,7 +60,7 @@ impl MouseInputReceiver {
             let pos = self.mouse.get_mouse().coords;
             let comparison = self.compare_positions(&last_pos, &pos);
             if comparison.movement() {
-                callback(MouseMovement { x: pos.0, y: pos.1 });
+                callback(comparison);
             }
 
             last_pos = pos;

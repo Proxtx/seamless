@@ -1,38 +1,71 @@
-use eframe::egui;
-use std::collections::HashMap;
+use {
+    eframe::{
+        egui::{self, CursorIcon},
+        Frame,
+    },
+    std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-pub struct GUI {}
+pub struct GUI {
+    quit: Arc<AtomicBool>,
+}
 
 impl GUI {
     pub fn new() -> Self {
-        let options = eframe::NativeOptions {
-            initial_window_size: Some(egui::vec2(320.0, 240.0)),
-            ..Default::default()
+        let instance = GUI {
+            quit: Arc::new(AtomicBool::new(true)),
         };
 
-        eframe::run_native(
-            "Seamless",
-            options,
-            Box::new(|cc| Box::<SeamlessUI>::default()),
-        )
-        .unwrap();
+        instance
+    }
 
-        GUI {}
+    pub fn init_ui(&self) {
+        self.quit.store(false, Ordering::Relaxed);
+
+        let options = eframe::NativeOptions {
+            initial_window_size: Some(egui::vec2(320.0, 240.0)),
+            always_on_top: true,
+            centered: true,
+            transparent: true,
+            decorated: false,
+            ..Default::default()
+        };
+        let ui = SeamlessUI::new(self.quit.clone());
+
+        eframe::run_native("Seamless", options, Box::new(|_cc| Box::new(ui)))
+            .expect("Was unable to create window. Panic! 🚨");
+    }
+
+    pub fn quit_ui(&self) {
+        self.quit.store(true, Ordering::Relaxed)
+    }
+
+    pub fn enabled(&self) -> bool {
+        !self.quit.load(Ordering::Relaxed)
     }
 }
 
 struct SeamlessUI {
-    display_items: HashMap<egui::Vec2, String>,
+    pub quit: Arc<AtomicBool>,
 }
 
-impl Default for SeamlessUI {
-    fn default() -> Self {
-        Self {
-            display_items: HashMap::new(),
-        }
+impl SeamlessUI {
+    pub fn new(quit_bool: Arc<AtomicBool>) -> Self {
+        SeamlessUI { quit: quit_bool }
     }
 }
 
 impl eframe::App for SeamlessUI {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {}
+    fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
+        ctx.set_cursor_icon(CursorIcon::None);
+        if self.quit.load(Ordering::Relaxed) {
+            frame.close()
+        }
+    }
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        [0.0; 4]
+    }
 }

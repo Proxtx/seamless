@@ -2,7 +2,7 @@ use {
     crate::{
         communicate::{Communicate, CommunicateError},
         display::{Client, ClientDisplays},
-        input::MouseMovement,
+        input::MousePosition,
     },
     std::{
         error, fmt,
@@ -70,7 +70,7 @@ where
 {
     fn serialize(&self) -> Result<String>;
 }
-impl Event for MouseMovement {
+impl Event for MousePosition {
     fn serialize(&self) -> Result<String> {
         Ok(format!("M{}|{}", self.x, self.y))
     }
@@ -91,7 +91,7 @@ impl Event for RequestDisplays {
 struct MouseMoveParser {}
 
 impl MouseMoveParser {
-    fn parse(&self, text: String) -> Result<MouseMovement> {
+    fn parse(&self, text: String) -> Result<MousePosition> {
         let mut split = text.split("|");
         let x: i32;
         let y: i32;
@@ -116,7 +116,7 @@ impl MouseMoveParser {
             }
         };
 
-        Ok(MouseMovement { x, y })
+        Ok(MousePosition { x, y })
     }
 
     fn get_prefix(&self) -> &'static str {
@@ -206,7 +206,7 @@ impl EventHandler {
 }
 
 pub enum Events {
-    MouseMovement(MouseMovement),
+    MouseMovement(MousePosition),
     ClientDisplays(ClientDisplays),
     RequestDisplays(RequestDisplays),
 }

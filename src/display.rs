@@ -177,7 +177,7 @@ impl DisplayManager {
 
     pub fn get_local_mouse_position(
         &self,
-        mouse_position: MousePosition,
+        mouse_position: &MousePosition,
     ) -> Result<ClientMousePosition> {
         struct FoundDisplay<'a> {
             pub client_displays: &'a ClientDisplays,
@@ -277,7 +277,7 @@ impl DisplayManager {
     }
 }
 
-struct ClientMousePosition {
-    client: Client,
-    mouse_position: MousePosition,
+pub struct ClientMousePosition {
+    pub client: Client,
+    pub mouse_position: MousePosition,
 }

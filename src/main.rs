@@ -4,18 +4,14 @@ use protocol::EventHandler;
 use tokio::sync::Mutex;
 
 mod communicate;
-//maybe later
-//mod gui;
 mod display;
+mod gui;
 mod input;
+mod mouse_handler;
 mod protocol;
-
-use enigo::MouseControllable;
 
 const GROUP_ID_PORT: &str = "225.0.4.16:31725";
 const SENDER_PORT: u16 = 31726;
-
-use crate::protocol::Event;
 
 struct ClientUpdates {
     displays: Arc<Mutex<display::DisplayManager>>,
@@ -35,9 +31,9 @@ impl communicate::ClientUpdates for ClientUpdates {
                 }))
                 .await
             {
-                Ok(v) => {}
+                Ok(_) => {}
                 Err(e) => {
-                    println!("Error requesting display update!");
+                    println!("Error requesting display update: {}", e);
                 }
             }
         }
@@ -67,56 +63,92 @@ async fn main() {
     let prot2 = prot.clone();
     let disp2 = displays.clone();
 
+    let handler = Arc::new(Mutex::new(mouse_handler::Handler::new(
+        prot.clone(),
+        displays.clone(),
+    )));
+    let handler2 = handler.clone();
+
     comms.assign_updates(Box::new(client_updates)).await;
 
-    prot.event_listener(move |v| match v {
-        protocol::Events::ClientDisplays(v) => {
-            let disp = disp2.clone();
-            tokio::spawn(async move {
-                let mut lock = disp.lock().await;
-                match lock.received_displays(v) {
-                    Err(e) => {
-                        println!("Unable to add received display: {}", e);
-                    }
-                    _ => {}
-                };
-                println!("{:?}", lock);
-            });
-        }
-        protocol::Events::MouseMovement(v) => {
-            println!("{:?}", v)
-        }
-        protocol::Events::RequestDisplays(v) => {
-            let comms = comms.clone();
-            let prot = prot2.clone();
-            tokio::spawn(async move {
-                let own_ip = comms.get_own_ip().await;
-                match own_ip {
-                    Some(v2) => {
-                        if v2.ip() == &v.client_ip {
-                            let own_displays = match display::ClientDisplays::new_local() {
-                                Ok(v) => v,
-                                Err(e) => {
-                                    println!("Error generating own display: {}", e);
-                                    return;
-                                }
-                            };
-                            match prot.emit_event(Box::new(own_displays)).await {
-                                Err(e) => {
-                                    println!("Unable to send own display: {}", e)
-                                }
-                                _ => {}
-                            }
+    tokio::spawn(async move {
+        prot.event_listener(move |v| match v {
+            protocol::Events::ClientDisplays(v) => {
+                let disp = disp2.clone();
+                tokio::spawn(async move {
+                    let mut lock = disp.lock().await;
+                    match lock.received_displays(v) {
+                        Err(e) => {
+                            println!("Unable to add received display: {}", e);
+                        }
+                        _ => {}
+                    };
+                    println!("{:?}", lock);
+                });
+            }
+            protocol::Events::MouseMovement(v) => {
+                let handler = handler2.clone();
+                tokio::spawn(async move {
+                    match handler.lock().await.set_current_position(v).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Error setting current position: {}", e)
                         }
                     }
-                    None => {
-                        println!("Unable to handle own display request because own ip is unknown");
+                });
+            }
+            protocol::Events::RequestDisplays(v) => {
+                let comms = comms.clone();
+                let prot = prot2.clone();
+                tokio::spawn(async move {
+                    let own_ip = comms.get_own_ip().await;
+                    match own_ip {
+                        Some(v2) => {
+                            if v2.ip() == &v.client_ip {
+                                let own_displays = match display::ClientDisplays::new_local() {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        println!("Error generating own display: {}", e);
+                                        return;
+                                    }
+                                };
+                                match prot.emit_event(Box::new(own_displays)).await {
+                                    Err(e) => {
+                                        println!("Unable to send own display: {}", e)
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        None => {
+                            println!(
+                                "Unable to handle own display request because own ip is unknown"
+                            );
+                        }
+                    }
+                });
+            }
+        })
+        .await;
+    });
+
+    let handler3 = handler.clone();
+
+    tokio::spawn(async move {
+        let input = input::MouseInputReceiver::new();
+
+        input.mouse_movement_listener(|movement| {
+            let handler = handler3.clone();
+            tokio::spawn(async move {
+                match handler.lock().await.mouse_movement(movement).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Was unable to process MouseMovement: {}", e)
                     }
                 }
             });
-        }
-    })
-    .await;
+        })
+    });
 
     barr.wait().await;
 }
