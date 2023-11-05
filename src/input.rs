@@ -24,10 +24,31 @@ impl ops::Add<MouseMovement> for MousePosition {
     }
 }
 
+impl ops::AddAssign<&MouseMovement> for MousePosition {
+    fn add_assign(&mut self, rhs: &MouseMovement) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
 impl ops::AddAssign<MouseMovement> for MousePosition {
     fn add_assign(&mut self, rhs: MouseMovement) {
         self.x += rhs.x;
         self.y += rhs.y;
+    }
+}
+
+impl ops::SubAssign<&MouseMovement> for MousePosition {
+    fn sub_assign(&mut self, rhs: &MouseMovement) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl ops::SubAssign<MouseMovement> for MousePosition {
+    fn sub_assign(&mut self, rhs: MouseMovement) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
     }
 }
 

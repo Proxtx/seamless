@@ -70,12 +70,25 @@ impl Handler {
     pub async fn mouse_movement(&mut self, mouse_movement: MouseMovement) -> Result<()> {
         let before_position;
         {
-            before_position = self
-                .display_manager
-                .lock()
-                .await
-                .get_local_mouse_position(&self.current_position)?;
-            self.current_position += mouse_movement;
+            let lock = self.display_manager.lock().await;
+            before_position = lock.get_local_mouse_position(&self.current_position)?;
+            self.current_position += &mouse_movement;
+            let current_position = lock.get_local_mouse_position(&self.current_position);
+
+            drop(lock);
+
+            match current_position {
+                Ok(_) => {}
+                Err(e) => match e {
+                    DisplayError::InvalidMousePosition => {
+                        println!("Do it");
+                        self.current_position -= &mouse_movement;
+                        self.apply_current_position().await?;
+                        return Ok(());
+                    }
+                    _ => return Err(e.into()),
+                },
+            }
         }
 
         match before_position.client {
