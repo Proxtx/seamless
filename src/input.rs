@@ -1,6 +1,6 @@
 use {
     device_query::{DeviceQuery, DeviceState},
-    std::ops,
+    std::{ops, time::Duration},
 };
 
 pub struct MouseInputReceiver {
@@ -74,7 +74,7 @@ impl MouseInputReceiver {
         }
     }
 
-    pub fn mouse_movement_listener(&self, callback: impl Fn(MouseMovement) -> ()) {
+    pub async fn mouse_movement_listener(&self, callback: impl Fn(MouseMovement) -> ()) {
         let mut last_pos = (0, 0);
 
         loop {
@@ -85,6 +85,8 @@ impl MouseInputReceiver {
             }
 
             last_pos = pos;
+
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
 
