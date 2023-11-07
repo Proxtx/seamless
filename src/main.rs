@@ -42,7 +42,6 @@ impl communicate::ClientUpdates for ClientUpdates {
 
 #[tokio::main]
 async fn main() {
-    let barr = tokio::sync::Barrier::new(2);
     let displays = Arc::new(Mutex::new(display::DisplayManager::new().unwrap()));
     let comms = Arc::new(
         communicate::Communicate::new(
@@ -149,6 +148,4 @@ async fn main() {
             });
         })
         .await;
-
-    barr.wait().await;
 }
