@@ -1,5 +1,6 @@
 use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
+use gui::GUI;
 use protocol::EventHandler;
 use tokio::sync::Mutex;
 
@@ -134,6 +135,8 @@ async fn main() {
     let handler3 = handler.clone();
 
     let input = input::MouseInputReceiver::new();
+
+    GUI::new().init_ui();
 
     input
         .mouse_movement_listener(|movement| {
