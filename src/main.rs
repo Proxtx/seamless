@@ -133,12 +133,12 @@ async fn main() {
     });
 
     let handler3 = handler.clone();
+    tokio::spawn(async move {
+        let input = input::MouseInputReceiver::new();
 
-    let input = input::MouseInputReceiver::new();
+        input.mouse_movement_listener(|movement| {}).await;
 
-    GUI::new().init_ui();
-
-    input
+        /*input
         .mouse_movement_listener(|movement| {
             let handler = handler3.clone();
             tokio::spawn(async move {
@@ -150,5 +150,8 @@ async fn main() {
                 }
             });
         })
-        .await;
+        .await;*/
+    });
+
+    GUI::new().init_ui();
 }
