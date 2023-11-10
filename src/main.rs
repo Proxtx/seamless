@@ -2,7 +2,7 @@ use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
 use gui::GUI;
 use protocol::EventHandler;
-use tokio::sync::Mutex;
+use tokio::{runtime::Handle, sync::Mutex};
 
 mod communicate;
 mod display;
@@ -133,12 +133,13 @@ async fn main() {
     });
 
     let handler3 = handler.clone();
+    let tokio_handle = Handle::current();
     std::thread::spawn(move || {
         let input = input::MouseInputReceiver::new();
 
         input.mouse_movement_listener(|movement| {
             let handler = handler3.clone();
-            tokio::spawn(async move {
+            tokio_handle.spawn(async move {
                 match handler.lock().await.mouse_movement(movement).await {
                     Ok(_) => {}
                     Err(e) => {
