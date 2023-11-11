@@ -4,7 +4,7 @@ use {
         Frame,
     },
     std::sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU16, Ordering},
         Arc,
     },
 };
@@ -67,5 +67,21 @@ impl eframe::App for SeamlessUI {
     }
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         [0.0; 4]
+    }
+}
+
+struct GUIHandler {
+    gui: GUI,
+    enable: AtomicU16,
+    local_enable: u16,
+}
+
+impl GUIHandler {
+    pub fn new() -> GUIHandler {
+        GUIHandler {
+            gui: GUI::new(),
+            enable: AtomicU16::new(0),
+            local_enable: 0,
+        }
     }
 }

@@ -1,4 +1,8 @@
-use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
+use std::{
+    net::SocketAddrV4,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use gui::GUI;
 use protocol::EventHandler;
@@ -149,6 +153,4 @@ async fn main() {
             });
         })
     });
-
-    GUI::new().init_ui();
 }
