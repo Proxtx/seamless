@@ -153,4 +153,6 @@ async fn main() {
             });
         })
     });
+
+    GUI::new().init_ui();
 }
