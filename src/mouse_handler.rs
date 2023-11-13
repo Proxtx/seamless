@@ -1,13 +1,12 @@
 use {
     crate::{
         display::{Client, DisplayError, DisplayManager},
-        gui::GUI,
         input::{MouseMovement, MousePosition},
         protocol::{EventHandler, ProtocolError},
     },
     enigo::{Enigo, MouseControllable},
     std::{error, fmt, sync::Arc},
-    tokio::sync::Mutex,
+    tokio::sync::{mpsc, Mutex},
 };
 
 type Result<T> = std::result::Result<T, MouseHandlerError>;
@@ -16,6 +15,7 @@ type Result<T> = std::result::Result<T, MouseHandlerError>;
 pub enum MouseHandlerError {
     DisplayError(DisplayError),
     ProtocolError(ProtocolError),
+    SendError,
 }
 
 impl error::Error for MouseHandlerError {}
@@ -28,6 +28,9 @@ impl fmt::Display for MouseHandlerError {
             }
             MouseHandlerError::ProtocolError(v) => {
                 write!(f, "Protocol Error: {}", v)
+            }
+            MouseHandlerError::SendError => {
+                write!(f, "Was unable to send to main thread")
             }
         }
     }
@@ -45,25 +48,32 @@ impl From<ProtocolError> for MouseHandlerError {
     }
 }
 
+impl From<mpsc::error::SendError<bool>> for MouseHandlerError {
+    fn from(_value: mpsc::error::SendError<bool>) -> Self {
+        MouseHandlerError::SendError
+    }
+}
+
 pub struct Handler {
     event_handler: Arc<EventHandler>,
     enigo: Enigo,
     display_manager: Arc<Mutex<DisplayManager>>,
     current_position: MousePosition,
-    gui: GUI,
+    gui_sender: mpsc::UnboundedSender<bool>,
 }
 
 impl Handler {
     pub fn new(
         event_handler: Arc<EventHandler>,
         display_manager: Arc<Mutex<DisplayManager>>,
+        gui_sender: mpsc::UnboundedSender<bool>,
     ) -> Handler {
         Handler {
             event_handler,
             enigo: Enigo::new(),
             display_manager,
             current_position: MousePosition { x: 0, y: 0 },
-            gui: GUI::new(),
+            gui_sender,
         }
     }
 
@@ -120,14 +130,10 @@ impl Handler {
             Client::IsSelf => {
                 self.enigo
                     .mouse_move_to(new_position.mouse_position.x, new_position.mouse_position.y);
-                if self.gui.enabled() {
-                    self.gui.quit_ui()
-                }
+                self.gui_sender.send(false)?;
             }
             Client::IsNetworked(_) => {
-                if !self.gui.enabled() {
-                    self.gui.init_ui();
-                }
+                self.gui_sender.send(true)?;
                 let size = self.enigo.main_display_size();
                 self.enigo.mouse_move_to(size.0, size.1);
             }

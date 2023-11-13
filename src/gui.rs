@@ -4,9 +4,10 @@ use {
         Frame,
     },
     std::sync::{
-        atomic::{AtomicBool, AtomicU16, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
+    tokio::sync::mpsc,
 };
 
 pub struct GUI {
@@ -70,18 +71,40 @@ impl eframe::App for SeamlessUI {
     }
 }
 
-struct GUIHandler {
+pub struct GUIHandler {
     gui: GUI,
-    enable: AtomicU16,
-    local_enable: u16,
+    receiver: mpsc::UnboundedReceiver<bool>,
 }
 
 impl GUIHandler {
-    pub fn new() -> GUIHandler {
-        GUIHandler {
-            gui: GUI::new(),
-            enable: AtomicU16::new(0),
-            local_enable: 0,
+    pub fn new() -> (GUIHandler, mpsc::UnboundedSender<bool>) {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        (
+            GUIHandler {
+                gui: GUI::new(),
+                receiver,
+            },
+            sender,
+        )
+    }
+
+    pub async fn start(&mut self) {
+        loop {
+            let msg = self.receiver.recv().await;
+            match msg {
+                None => {
+                    println!("Received an empty message on gui channel? Not expected")
+                }
+                Some(v) => match (v, self.gui.enabled()) {
+                    (true, false) => {
+                        self.gui.init_ui();
+                    }
+                    (false, true) => {
+                        self.gui.quit_ui();
+                    }
+                    _ => {}
+                },
+            }
         }
     }
 }
