@@ -102,6 +102,7 @@ async fn main() {
             protocol::Events::RequestDisplays(v) => {
                 let comms = comms.clone();
                 let prot = prot2.clone();
+                println!("got display request");
                 tokio::spawn(async move {
                     let own_ip = comms.get_own_ip().await;
                     match own_ip {
