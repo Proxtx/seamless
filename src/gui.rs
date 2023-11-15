@@ -7,7 +7,7 @@ use {
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    tokio::sync::mpsc,
+    tokio::sync::mpsc::{self, error::SendError},
 };
 
 pub struct GUI {
@@ -72,19 +72,42 @@ impl eframe::App for SeamlessUI {
 }
 
 pub struct GUIHandler {
+    sender: mpsc::UnboundedSender<bool>,
+    end_gui: Arc<AtomicBool>,
+}
+
+impl GUIHandler {
+    pub fn quit_ui(&self) {
+        self.end_gui.store(true, Ordering::Relaxed)
+    }
+
+    pub fn init_ui(&self) -> Result<(), SendError<bool>> {
+        if !self.end_gui.load(Ordering::Relaxed) {
+            self.sender.send(true)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub struct GUIStarter {
     gui: GUI,
     receiver: mpsc::UnboundedReceiver<bool>,
 }
 
-impl GUIHandler {
-    pub fn new() -> (GUIHandler, mpsc::UnboundedSender<bool>) {
+impl GUIStarter {
+    pub fn new() -> (GUIStarter, GUIHandler) {
         let (sender, receiver) = mpsc::unbounded_channel();
+        let gui = GUI::new();
         (
-            GUIHandler {
+            GUIStarter {
                 gui: GUI::new(),
                 receiver,
             },
-            sender,
+            GUIHandler {
+                sender,
+                end_gui: gui.quit,
+            },
         )
     }
 

@@ -62,12 +62,12 @@ async fn main() {
     let prot2 = prot.clone();
     let disp2 = displays.clone();
 
-    let (mut gui_handler, sender) = gui::GUIHandler::new();
+    let (mut gui_starter, gui_handler) = gui::GUIStarter::new();
 
     let handler = Arc::new(Mutex::new(mouse_handler::Handler::new(
         prot.clone(),
         displays.clone(),
-        sender,
+        Arc::new(gui_handler),
     )));
     let handler2 = handler.clone();
 
@@ -153,5 +153,5 @@ async fn main() {
         })
     });
 
-    gui_handler.start().await;
+    gui_starter.start().await;
 }

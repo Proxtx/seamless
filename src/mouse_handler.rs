@@ -1,6 +1,7 @@
 use {
     crate::{
         display::{Client, DisplayError, DisplayManager},
+        gui::GUIHandler,
         input::{MouseMovement, MousePosition},
         protocol::{EventHandler, ProtocolError},
     },
@@ -59,21 +60,21 @@ pub struct Handler {
     enigo: Enigo,
     display_manager: Arc<Mutex<DisplayManager>>,
     current_position: MousePosition,
-    gui_sender: mpsc::UnboundedSender<bool>,
+    gui_handler: Arc<GUIHandler>,
 }
 
 impl Handler {
     pub fn new(
         event_handler: Arc<EventHandler>,
         display_manager: Arc<Mutex<DisplayManager>>,
-        gui_sender: mpsc::UnboundedSender<bool>,
+        gui_handler: Arc<GUIHandler>,
     ) -> Handler {
         Handler {
             event_handler,
             enigo: Enigo::new(),
             display_manager,
             current_position: MousePosition { x: 0, y: 0 },
-            gui_sender,
+            gui_handler,
         }
     }
 
@@ -130,10 +131,10 @@ impl Handler {
             Client::IsSelf => {
                 self.enigo
                     .mouse_move_to(new_position.mouse_position.x, new_position.mouse_position.y);
-                self.gui_sender.send(false)?;
+                self.gui_handler.quit_ui();
             }
             Client::IsNetworked(_) => {
-                self.gui_sender.send(true)?;
+                self.gui_handler.init_ui()?;
                 let size = self.enigo.main_display_size();
                 self.enigo.mouse_move_to(size.0, size.1);
             }
