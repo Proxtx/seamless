@@ -89,7 +89,6 @@ async fn main() {
                 });
             }
             protocol::Events::MouseMovement(v) => {
-                println!("{:?}", v);
                 let handler = handler2.clone();
                 tokio::spawn(async move {
                     match handler.lock().await.set_current_position(v).await {

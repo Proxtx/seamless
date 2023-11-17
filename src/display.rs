@@ -277,6 +277,7 @@ impl DisplayManager {
     }
 }
 
+#[derive(Debug)]
 pub struct ClientMousePosition {
     pub client: Client,
     pub mouse_position: MousePosition,

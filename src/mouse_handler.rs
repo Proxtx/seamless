@@ -127,6 +127,8 @@ impl Handler {
                 .get_local_mouse_position(&self.current_position)?;
         }
 
+        println!("{:?}, {:?}", new_position, self.current_position);
+
         match new_position.client {
             Client::IsSelf => {
                 self.enigo
