@@ -82,7 +82,7 @@ impl GUIHandler {
     }
 
     pub fn init_ui(&self) -> Result<(), SendError<bool>> {
-        if !self.end_gui.load(Ordering::Relaxed) {
+        if self.end_gui.load(Ordering::Relaxed) {
             self.sender.send(true)?;
         }
 
