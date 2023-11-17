@@ -80,16 +80,19 @@ impl Handler {
 
     pub async fn mouse_movement(&mut self, mouse_movement: MouseMovement) -> Result<()> {
         let before_position;
+        let current_position;
         {
             let lock = self.display_manager.lock().await;
             before_position = lock.get_local_mouse_position(&self.current_position)?;
             self.current_position += &mouse_movement;
-            let current_position = lock.get_local_mouse_position(&self.current_position);
+            let current_position_res = lock.get_local_mouse_position(&self.current_position);
 
             drop(lock);
 
-            match current_position {
-                Ok(_) => {}
+            match current_position_res {
+                Ok(v) => {
+                    current_position = v;
+                }
                 Err(e) => match e {
                     DisplayError::InvalidMousePosition => {
                         println!("Do it");
@@ -109,9 +112,14 @@ impl Handler {
             Client::IsSelf => {}
         }
 
-        self.event_handler
-            .emit_event(Box::new(self.current_position.clone()))
-            .await?;
+        match current_position.client {
+            Client::IsNetworked(_) => {
+                self.event_handler
+                    .emit_event(Box::new(self.current_position.clone()))
+                    .await?
+            }
+            Client::IsSelf => {}
+        }
 
         Ok(())
     }
@@ -138,7 +146,7 @@ impl Handler {
             Client::IsNetworked(_) => {
                 self.gui_handler.init_ui()?;
                 let size = self.enigo.main_display_size();
-                self.enigo.mouse_move_to(size.0, size.1);
+                self.enigo.mouse_move_to(size.0 / 2, size.1 / 2);
             }
         }
 
