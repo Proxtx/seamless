@@ -164,6 +164,8 @@ impl Handler {
 
         self.current_position = new_global_position;
 
+        println!("{:?}", self.current_position);
+
         self.event_handler
             .emit_event(Box::new(self.current_position.clone()))
             .await?;

@@ -265,7 +265,11 @@ impl DisplayManager {
                 Client::IsSelf => {
                     for display in client.displays.iter() {
                         if display.contains(&local_position) {
-                            return Ok(self.get_display_position(&display)?);
+                            return Ok(self.get_display_position(&display)?
+                                + MousePosition {
+                                    x: local_position.x - display.client_x,
+                                    y: local_position.y - display.client_y,
+                                });
                         }
                     }
                 }

@@ -52,6 +52,17 @@ impl ops::SubAssign<MouseMovement> for MousePosition {
     }
 }
 
+impl ops::Add<MousePosition> for MousePosition {
+    type Output = MousePosition;
+
+    fn add(self, rhs: MousePosition) -> Self::Output {
+        MousePosition {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MouseMovement {
     pub x: i32,
