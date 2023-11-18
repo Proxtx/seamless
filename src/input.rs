@@ -38,6 +38,17 @@ impl ops::AddAssign<MouseMovement> for MousePosition {
     }
 }
 
+impl ops::Sub<MouseMovement> for MousePosition {
+    type Output = MousePosition;
+
+    fn sub(self, rhs: MouseMovement) -> Self::Output {
+        MousePosition {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
 impl ops::SubAssign<&MouseMovement> for MousePosition {
     fn sub_assign(&mut self, rhs: &MouseMovement) {
         self.x -= rhs.x;

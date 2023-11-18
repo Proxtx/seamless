@@ -137,7 +137,7 @@ impl Handler {
                 Client::IsNetworked(_) => {
                     let display_size = self.enigo.main_display_size();
                     new_global_position = self.current_position.clone()
-                        + MouseMovement {
+                        - MouseMovement {
                             x: (display_size.0 / 2 - mouse_position.x),
                             y: (display_size.1 / 2 - mouse_position.y),
                         };
