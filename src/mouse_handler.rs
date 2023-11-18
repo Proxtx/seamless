@@ -78,8 +78,8 @@ impl Handler {
         }
     }
 
-    pub async fn mouse_movement(&mut self, mouse_movement: MouseMovement) -> Result<()> {
-        let before_position;
+    pub async fn mouse_movement(&mut self, mouse_position: MousePosition) -> Result<()> {
+        /*let before_position;
         let current_position;
         {
             let lock = self.display_manager.lock().await;
@@ -120,6 +120,53 @@ impl Handler {
             }
             Client::IsSelf => {}
         }
+
+        Ok(())*/
+
+        let new_global_position;
+        let is_local: (bool, Option<(i32, i32)>);
+
+        {
+            let lock = self.display_manager.lock().await;
+            let last_position = lock.get_local_mouse_position(&self.current_position)?;
+            match last_position.client {
+                Client::IsSelf => {
+                    new_global_position = lock.get_global_mouse_position(mouse_position)?;
+                    is_local = (true, None);
+                }
+                Client::IsNetworked(_) => {
+                    let display_size = self.enigo.main_display_size();
+                    new_global_position = self.current_position.clone()
+                        + MouseMovement {
+                            x: (display_size.0 / 2 - mouse_position.x),
+                            y: (display_size.1 / 2 - mouse_position.y),
+                        };
+                    is_local = (false, Some(display_size));
+                }
+            }
+        }
+
+        match is_local.0 {
+            false => match is_local.1 {
+                Some(v) => {
+                    self.enigo.mouse_move_to(v.0 / 2, v.1 / 2);
+                    self.gui_handler.init_ui()?;
+                }
+                None => {
+                    println!("Local display_size not defined! Why?");
+                }
+            },
+
+            true => {
+                self.gui_handler.quit_ui();
+            }
+        }
+
+        self.current_position = new_global_position;
+
+        self.event_handler
+            .emit_event(Box::new(self.current_position.clone()))
+            .await?;
 
         Ok(())
     }

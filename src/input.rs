@@ -74,14 +74,14 @@ impl MouseInputReceiver {
         }
     }
 
-    pub fn mouse_movement_listener(&self, callback: impl Fn(MouseMovement) -> ()) {
+    pub fn mouse_movement_listener(&self, callback: impl Fn(MousePosition) -> ()) {
         let mut last_pos = (0, 0);
 
         loop {
             let pos = self.mouse.get_mouse().coords;
             let comparison = self.compare_positions(&last_pos, &pos);
             if comparison.movement() {
-                callback(comparison);
+                callback(MousePosition { x: pos.0, y: pos.1 });
             }
 
             last_pos = pos;

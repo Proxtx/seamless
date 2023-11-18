@@ -1,7 +1,7 @@
 use {
     crate::{communicate::ReceiverDevice, input::MousePosition},
     display_info::DisplayInfo,
-    std::{error, fmt, net::SocketAddrV4},
+    std::{error, fmt, net::SocketAddrV4, ptr},
 };
 
 type Result<T> = std::result::Result<T, DisplayError>;
@@ -67,6 +67,14 @@ struct Display {
     pub client_y: i32,
     pub width: u32,
     pub height: u32,
+}
+
+impl Display {
+    pub fn contains(&self, mouse_position: &MousePosition) -> bool {
+        (mouse_position.x >= self.client_x && mouse_position.x <= self.client_x + self.width as i32)
+            && (mouse_position.y >= self.client_y
+                && mouse_position.y <= self.client_y + self.height as i32)
+    }
 }
 
 impl From<DisplayInfo> for Display {
@@ -245,6 +253,43 @@ impl DisplayManager {
             client: result.client_displays.client.clone(),
             mouse_position: result.get_local_position(),
         })
+    }
+
+    pub fn get_global_mouse_position(
+        &self,
+        local_position: MousePosition,
+    ) -> Result<MousePosition> {
+        for client in self.clients.iter() {
+            match client.client {
+                Client::IsNetworked(_) => {}
+                Client::IsSelf => {
+                    for display in client.displays.iter() {
+                        if display.contains(&local_position) {
+                            return Ok(self.get_display_position(&display)?);
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(DisplayError::InvalidMousePosition)
+    }
+
+    fn get_display_position(&self, display: &Display) -> Result<MousePosition> {
+        let mut total_x: u32 = 0;
+        for client in self.clients.iter() {
+            for client_display in client.displays.iter() {
+                if ptr::eq(client_display, display) {
+                    return Ok(MousePosition {
+                        x: total_x as i32,
+                        y: 0,
+                    });
+                }
+                total_x += client_display.width;
+            }
+        }
+
+        Err(DisplayError::DisplayFetchError)
     }
 
     pub fn get_missing_displays<'a>(
