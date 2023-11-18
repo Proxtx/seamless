@@ -1,6 +1,6 @@
 use {
     crate::{
-        display::{Client, DisplayError, DisplayManager},
+        display::{Client, ClientMousePosition, DisplayError, DisplayManager},
         gui::GUIHandler,
         input::{MouseMovement, MousePosition},
         protocol::{EventHandler, ProtocolError},
@@ -122,6 +122,7 @@ impl Handler {
         }
 
         Ok(())*/
+        let last_local_position: Option<ClientMousePosition>;
 
         let new_global_position;
         let new_local_position_res;
@@ -130,21 +131,25 @@ impl Handler {
             let lock = self.display_manager.lock().await;
             let last_position = lock.get_local_mouse_position(&self.current_position);
             match last_position {
-                Ok(last_position) => match last_position.client {
-                    Client::IsSelf => {
-                        new_global_position = lock.get_global_mouse_position(mouse_position)?;
+                Ok(last_position) => {
+                    match last_position.client {
+                        Client::IsSelf => {
+                            new_global_position = lock.get_global_mouse_position(mouse_position)?;
+                        }
+                        Client::IsNetworked(_) => {
+                            let display_size = self.enigo.main_display_size();
+                            new_global_position = self.current_position.clone()
+                                - MouseMovement {
+                                    x: (display_size.0 / 2 - mouse_position.x),
+                                    y: (display_size.1 / 2 - mouse_position.y),
+                                };
+                        }
                     }
-                    Client::IsNetworked(_) => {
-                        let display_size = self.enigo.main_display_size();
-                        new_global_position = self.current_position.clone()
-                            - MouseMovement {
-                                x: (display_size.0 / 2 - mouse_position.x),
-                                y: (display_size.1 / 2 - mouse_position.y),
-                            };
-                    }
-                },
-                Err(e) => {
+                    last_local_position = Some(last_position);
+                }
+                Err(_e) => {
                     new_global_position = MousePosition { x: 0, y: 0 };
+                    last_local_position = None;
                 }
             }
 
@@ -155,10 +160,7 @@ impl Handler {
             Ok(new_local_position) => {
                 match new_local_position.client {
                     Client::IsNetworked(_) => {
-                        let display_size = self.enigo.main_display_size();
-                        self.enigo
-                            .mouse_move_to(display_size.0 / 2, display_size.1 / 2);
-                        self.gui_handler.init_ui()?;
+                        self.center_mouse_init_gui()?;
                     }
 
                     Client::IsSelf => {
@@ -167,7 +169,15 @@ impl Handler {
                 }
                 self.current_position = new_global_position;
             }
-            Err(_e) => {}
+            Err(_e) => match last_local_position {
+                Some(v) => match v.client {
+                    Client::IsNetworked(_) => {
+                        self.center_mouse_init_gui()?;
+                    }
+                    Client::IsSelf => {}
+                },
+                None => {}
+            },
         }
 
         println!("{:?}", self.current_position);
@@ -176,6 +186,14 @@ impl Handler {
             .emit_event(Box::new(self.current_position.clone()))
             .await?;
 
+        Ok(())
+    }
+
+    fn center_mouse_init_gui(&mut self) -> Result<()> {
+        let display_size = self.enigo.main_display_size();
+        self.enigo
+            .mouse_move_to(display_size.0 / 2, display_size.1 / 2);
+        self.gui_handler.init_ui()?;
         Ok(())
     }
 
