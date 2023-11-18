@@ -99,14 +99,12 @@ impl GUIStarter {
     pub fn new() -> (GUIStarter, GUIHandler) {
         let (sender, receiver) = mpsc::unbounded_channel();
         let gui = GUI::new();
+        let quit_clone = gui.quit.clone();
         (
-            GUIStarter {
-                gui: GUI::new(),
-                receiver,
-            },
+            GUIStarter { gui: gui, receiver },
             GUIHandler {
                 sender,
-                end_gui: gui.quit,
+                end_gui: quit_clone,
             },
         )
     }

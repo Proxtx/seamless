@@ -79,49 +79,6 @@ impl Handler {
     }
 
     pub async fn mouse_movement(&mut self, mouse_position: MousePosition) -> Result<()> {
-        /*let before_position;
-        let current_position;
-        {
-            let lock = self.display_manager.lock().await;
-            before_position = lock.get_local_mouse_position(&self.current_position)?;
-            self.current_position += &mouse_movement;
-            let current_position_res = lock.get_local_mouse_position(&self.current_position);
-
-            drop(lock);
-
-            match current_position_res {
-                Ok(v) => {
-                    current_position = v;
-                }
-                Err(e) => match e {
-                    DisplayError::InvalidMousePosition => {
-                        println!("Do it");
-                        self.current_position -= &mouse_movement;
-                        self.apply_current_position().await?;
-                        return Ok(());
-                    }
-                    _ => return Err(e.into()),
-                },
-            }
-        }
-
-        match before_position.client {
-            Client::IsNetworked(_) => {
-                self.apply_current_position().await?;
-            }
-            Client::IsSelf => {}
-        }
-
-        match current_position.client {
-            Client::IsNetworked(_) => {
-                self.event_handler
-                    .emit_event(Box::new(self.current_position.clone()))
-                    .await?
-            }
-            Client::IsSelf => {}
-        }
-
-        Ok(())*/
         let last_local_position: Option<ClientMousePosition>;
 
         let new_global_position;
@@ -180,8 +137,6 @@ impl Handler {
             },
         }
 
-        println!("{:?}", self.current_position);
-
         self.event_handler
             .emit_event(Box::new(self.current_position.clone()))
             .await?;
@@ -207,8 +162,6 @@ impl Handler {
                 .await
                 .get_local_mouse_position(&self.current_position)?;
         }
-
-        println!("{:?}, {:?}", new_position, self.current_position);
 
         match new_position.client {
             Client::IsSelf => {
