@@ -29,6 +29,11 @@ impl fmt::Display for DisplayError {
     }
 }
 
+pub enum Edge {
+    Left,
+    Right,
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ClientDisplays {
     pub client: Client,
@@ -51,6 +56,23 @@ impl ClientDisplays {
             client: Client::IsSelf,
             displays: client_displays,
         })
+    }
+
+    pub fn on_horizontal_edge(&self, mouse_position: &MousePosition) -> Option<Edge> {
+        if self.displays.len() == 0 {
+            return None;
+        }
+        let display_left = self.displays.first().unwrap(); //this is ok because we checked the length of client_displays first
+        if mouse_position.x <= display_left.client_x {
+            return Some(Edge::Left);
+        }
+
+        let display_right = self.displays.last().unwrap(); //this is ok because we checked the length of client_displays first
+        if mouse_position.x >= display_right.client_x + display_left.width as i32 - 1 {
+            return Some(Edge::Right);
+        }
+
+        None
     }
 }
 
@@ -151,6 +173,43 @@ impl DisplayManager {
                 }
             })
             .collect();
+    }
+
+    pub fn get_own_client_displays_index(&self) -> Option<usize> {
+        for (index, client) in self.clients.iter().enumerate() {
+            match client.client {
+                Client::IsSelf => {
+                    return Some(index);
+                }
+                Client::IsNetworked(_) => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn is_on_edge(
+        &self,
+        mouse_position: &MousePosition,
+        client_index: usize,
+    ) -> Result<Option<Edge>> {
+        let client = self.clients.get(client_index);
+        match client {
+            Some(v) => {
+                let edge = v.on_horizontal_edge(mouse_position);
+                match edge {
+                    Some(v) => {
+                        match (client_index > 0, client_index < self.clients.len() - 1, &v) {
+                            (true, _, Edge::Left) => Ok(Some(v)),
+                            (_, true, Edge::Right) => Ok(Some(v)),
+                            _ => Ok(None),
+                        }
+                    }
+                    None => Ok(None),
+                }
+            }
+            None => Err(DisplayError::DisplayFetchError),
+        }
     }
 
     fn sort_client_displays(&mut self) -> Result<()> {

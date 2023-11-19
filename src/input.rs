@@ -1,11 +1,7 @@
 use {
-    device_query::{DeviceQuery, DeviceState},
+    enigo::{Enigo, MouseControllable},
     std::{ops, time::Duration},
 };
-
-pub struct MouseInputReceiver {
-    mouse: DeviceState,
-}
 
 #[derive(Debug, Clone)]
 pub struct MousePosition {
@@ -82,17 +78,21 @@ pub struct MouseMovement {
 
 impl MouseMovement {
     pub fn movement(&self) -> bool {
-        if self.x != 0 && self.y != 0 {
+        if self.x != 0 || self.y != 0 {
             return true;
         }
         false
     }
 }
 
+pub struct MouseInputReceiver {
+    mouse: Enigo,
+}
+
 impl MouseInputReceiver {
     pub fn new() -> Self {
         MouseInputReceiver {
-            mouse: DeviceState::new(),
+            mouse: Enigo::new(),
         }
     }
 
@@ -100,7 +100,7 @@ impl MouseInputReceiver {
         let mut last_pos = (0, 0);
 
         loop {
-            let pos = self.mouse.get_mouse().coords;
+            let pos = self.mouse.mouse_location();
             let comparison = self.compare_positions(&last_pos, &pos);
             if comparison.movement() {
                 callback(MousePosition { x: pos.0, y: pos.1 });

@@ -1,6 +1,6 @@
 use {
     crate::{
-        display::{Client, ClientMousePosition, DisplayError, DisplayManager},
+        display::{Client, ClientMousePosition, DisplayError, DisplayManager, Edge},
         gui::GUIHandler,
         input::{MouseMovement, MousePosition},
         protocol::{EventHandler, ProtocolError},
@@ -17,6 +17,7 @@ pub enum MouseHandlerError {
     DisplayError(DisplayError),
     ProtocolError(ProtocolError),
     SendError,
+    OwnDisplayError,
 }
 
 impl error::Error for MouseHandlerError {}
@@ -32,6 +33,9 @@ impl fmt::Display for MouseHandlerError {
             }
             MouseHandlerError::SendError => {
                 write!(f, "Was unable to send to main thread")
+            }
+            MouseHandlerError::OwnDisplayError => {
+                write!(f, "Was unable to find own display")
             }
         }
     }
@@ -81,7 +85,7 @@ impl Handler {
     pub async fn mouse_movement(&mut self, mouse_position: MousePosition) -> Result<()> {
         let last_local_position: Option<ClientMousePosition>;
 
-        let new_global_position;
+        let mut new_global_position;
         let new_local_position_res;
 
         {
@@ -110,7 +114,33 @@ impl Handler {
                 }
             }
 
-            new_local_position_res = lock.get_local_mouse_position(&new_global_position);
+            let computed_local_position_res = lock.get_local_mouse_position(&new_global_position);
+            new_local_position_res = match &computed_local_position_res {
+                Ok(v) => match &v.client {
+                    Client::IsSelf => {
+                        let own_index = match lock.get_own_client_displays_index() {
+                            Some(v) => v,
+                            None => {
+                                return Err(MouseHandlerError::OwnDisplayError);
+                            }
+                        };
+
+                        match lock.is_on_edge(&v.mouse_position, own_index)? {
+                            Some(Edge::Left) => {
+                                new_global_position.x -= 5;
+                                lock.get_local_mouse_position(&new_global_position)
+                            }
+                            Some(Edge::Right) => {
+                                new_global_position.x += 5;
+                                lock.get_local_mouse_position(&new_global_position)
+                            }
+                            None => computed_local_position_res,
+                        }
+                    }
+                    Client::IsNetworked(_v) => computed_local_position_res,
+                },
+                Err(_e) => computed_local_position_res,
+            }
         }
 
         match new_local_position_res {
