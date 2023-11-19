@@ -3,29 +3,14 @@ use {
         egui::{self, CursorIcon},
         Frame,
     },
-    std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    std::process::{Child, Command},
     tokio::sync::mpsc::{self, error::SendError},
 };
 
-pub struct GUI {
-    quit: Arc<AtomicBool>,
-}
+pub struct GUI {}
 
 impl GUI {
     pub fn new() -> Self {
-        let instance = GUI {
-            quit: Arc::new(AtomicBool::new(true)),
-        };
-
-        instance
-    }
-
-    pub fn init_ui(&self) {
-        self.quit.store(false, Ordering::Relaxed);
-
         let options = eframe::NativeOptions {
             initial_window_size: Some(egui::vec2(320.0, 240.0)),
             always_on_top: true,
@@ -34,37 +19,26 @@ impl GUI {
             decorated: false,
             ..Default::default()
         };
-        let ui = SeamlessUI::new(self.quit.clone());
+        let ui = SeamlessUI::new();
 
         eframe::run_native("Seamless", options, Box::new(|_cc| Box::new(ui)))
             .expect("Was unable to create window. Panic! 🚨");
-    }
 
-    pub fn quit_ui(&self) {
-        self.quit.store(true, Ordering::Relaxed)
-    }
-
-    pub fn enabled(&self) -> bool {
-        !self.quit.load(Ordering::Relaxed)
+        GUI {}
     }
 }
 
-struct SeamlessUI {
-    pub quit: Arc<AtomicBool>,
-}
+struct SeamlessUI {}
 
 impl SeamlessUI {
-    pub fn new(quit_bool: Arc<AtomicBool>) -> Self {
-        SeamlessUI { quit: quit_bool }
+    pub fn new() -> Self {
+        SeamlessUI {}
     }
 }
 
 impl eframe::App for SeamlessUI {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         ctx.set_cursor_icon(CursorIcon::None);
-        if self.quit.load(Ordering::Relaxed) {
-            frame.close()
-        }
     }
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         [0.0; 4]
@@ -73,58 +47,81 @@ impl eframe::App for SeamlessUI {
 
 pub struct GUIHandler {
     sender: mpsc::UnboundedSender<bool>,
-    end_gui: Arc<AtomicBool>,
 }
 
 impl GUIHandler {
-    pub fn quit_ui(&self) {
-        self.end_gui.store(true, Ordering::Relaxed)
+    pub fn quit_ui(&self) -> Result<(), SendError<bool>> {
+        self.sender.send(false)?;
+        Ok(())
     }
 
     pub fn init_ui(&self) -> Result<(), SendError<bool>> {
-        if self.end_gui.load(Ordering::Relaxed) {
-            self.sender.send(true)?;
-        }
-
+        self.sender.send(true)?;
         Ok(())
     }
 }
 
-pub struct GUIStarter {
-    gui: GUI,
+pub struct GUIProcessManager {
+    gui_process: Option<Child>,
+    own_path: String,
     receiver: mpsc::UnboundedReceiver<bool>,
 }
 
-impl GUIStarter {
-    pub fn new() -> (GUIStarter, GUIHandler) {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let gui = GUI::new();
-        let quit_clone = gui.quit.clone();
+impl GUIProcessManager {
+    pub fn new(own_path: String) -> (Self, GUIHandler) {
+        let (sender, receiver) = mpsc::unbounded_channel::<bool>();
         (
-            GUIStarter { gui: gui, receiver },
-            GUIHandler {
-                sender,
-                end_gui: quit_clone,
+            GUIProcessManager {
+                gui_process: None,
+                own_path,
+                receiver,
             },
+            GUIHandler { sender },
         )
     }
 
-    pub async fn start(&mut self) {
+    fn quit_ui(&mut self) -> Result<(), std::io::Error> {
+        match self.gui_process {
+            Some(ref mut v) => {
+                v.kill()?;
+                self.gui_process = None;
+            }
+
+            None => {}
+        }
+
+        Ok(())
+    }
+
+    fn init_ui(&mut self) -> Result<(), std::io::Error> {
+        match self.gui_process {
+            None => {
+                self.gui_process = Some(Command::new(&self.own_path).arg("gui").spawn()?);
+            }
+            Some(_) => {}
+        }
+        Ok(())
+    }
+
+    pub async fn listen(&mut self) {
         loop {
-            let msg = self.receiver.recv().await;
-            match msg {
-                None => {
-                    println!("Received an empty message on gui channel? Not expected")
-                }
-                Some(v) => match (v, self.gui.enabled()) {
-                    (true, false) => {
-                        self.gui.init_ui();
-                    }
-                    (false, true) => {
-                        self.gui.quit_ui();
+            match self.receiver.recv().await {
+                Some(true) => match self.init_ui() {
+                    Err(e) => {
+                        println!("Was unable to init ui: {}", e)
                     }
                     _ => {}
                 },
+                Some(false) => match self.quit_ui() {
+                    Err(e) => {
+                        println!("Was unable to quit ui: {}", e)
+                    }
+
+                    _ => {}
+                },
+                None => {
+                    println!("Received nothing? What how?")
+                }
             }
         }
     }

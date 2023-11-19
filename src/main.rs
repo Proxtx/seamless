@@ -1,5 +1,6 @@
 use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
 
+use gui::GUI;
 use protocol::EventHandler;
 use tokio::{runtime::Handle, sync::Mutex};
 
@@ -9,6 +10,7 @@ mod gui;
 mod input;
 mod mouse_handler;
 mod protocol;
+use std::env;
 
 const GROUP_ID_PORT: &str = "225.0.4.16:31725";
 const SENDER_PORT: u16 = 31726;
@@ -42,6 +44,25 @@ impl communicate::ClientUpdates for ClientUpdates {
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = env::args().collect();
+    let own_path;
+    match args.get(0) {
+        Some(v) => {
+            own_path = v;
+        }
+        None => {
+            panic!("Unable to find own path!");
+        }
+    }
+    match args.get(1) {
+        Some(v) => {
+            if v == "gui" {
+                GUI::new();
+            }
+        }
+        None => {}
+    }
+
     let displays = Arc::new(Mutex::new(display::DisplayManager::new().unwrap()));
     let comms = Arc::new(
         communicate::Communicate::new(
@@ -62,7 +83,7 @@ async fn main() {
     let prot2 = prot.clone();
     let disp2 = displays.clone();
 
-    let (mut gui_starter, gui_handler) = gui::GUIStarter::new();
+    let (mut gui_process_manager, gui_handler) = gui::GUIProcessManager::new(own_path.clone());
 
     let handler = Arc::new(Mutex::new(mouse_handler::Handler::new(
         prot.clone(),
@@ -153,5 +174,5 @@ async fn main() {
         })
     });
 
-    gui_starter.start().await;
+    gui_process_manager.listen().await;
 }

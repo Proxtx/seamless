@@ -121,7 +121,7 @@ impl Handler {
                     }
 
                     Client::IsSelf => {
-                        self.gui_handler.quit_ui();
+                        self.gui_handler.quit_ui()?;
                     }
                 }
                 self.current_position = new_global_position;
@@ -167,7 +167,7 @@ impl Handler {
             Client::IsSelf => {
                 self.enigo
                     .mouse_move_to(new_position.mouse_position.x, new_position.mouse_position.y);
-                self.gui_handler.quit_ui();
+                self.gui_handler.quit_ui()?;
             }
             Client::IsNetworked(_) => {
                 self.gui_handler.init_ui()?;
