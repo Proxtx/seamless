@@ -1,6 +1,8 @@
 use {
-    enigo::{Enigo, MouseControllable},
-    std::{ops, time::Duration},
+    crate::mouse_handler::Handler,
+    device_query::{CallbackGuard, DeviceEvents, DeviceState, Keycode},
+    std::{ops, sync::Arc},
+    tokio::{runtime::Handle, sync::Mutex},
 };
 
 #[derive(Debug, Clone)]
@@ -76,46 +78,77 @@ pub struct MouseMovement {
     pub y: i32,
 }
 
-impl MouseMovement {
-    pub fn movement(&self) -> bool {
-        if self.x != 0 || self.y != 0 {
-            return true;
-        }
-        false
-    }
-}
+impl MouseMovement {}
 
 pub struct MouseInputReceiver {
-    mouse: Enigo,
+    mouse: DeviceState,
 }
 
 impl MouseInputReceiver {
     pub fn new() -> Self {
         MouseInputReceiver {
-            mouse: Enigo::new(),
+            mouse: DeviceState::new(),
         }
     }
 
-    pub fn mouse_movement_listener(&self, callback: impl Fn(MousePosition) -> ()) {
-        let mut last_pos = (0, 0);
+    pub fn mouse_movement_listener(
+        &self,
+        handler: Arc<Mutex<Handler>>,
+        handle: Handle,
+    ) -> CallbackGuard<impl Fn(&(i32, i32))> {
+        self.mouse.on_mouse_move(move |position_n_parsed| {
+            let position = MousePosition {
+                x: position_n_parsed.0,
+                y: position_n_parsed.1,
+            };
+            let handler = handler.clone();
+            handle.spawn(async move {
+                match handler.lock().await.mouse_movement(position).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Was unable to process MouseMovement: {}", e)
+                    }
+                }
+            });
+        })
+    }
+}
 
-        loop {
-            let pos = self.mouse.mouse_location();
-            let comparison = self.compare_positions(&last_pos, &pos);
-            if comparison.movement() {
-                callback(MousePosition { x: pos.0, y: pos.1 });
-            }
+struct KeyInput {}
 
-            last_pos = pos;
+pub struct KeyInputReceiver {
+    keys: DeviceState,
+}
 
-            std::thread::sleep(Duration::from_millis(10));
+impl KeyInputReceiver {
+    pub fn new() -> Self {
+        KeyInputReceiver {
+            keys: DeviceState::new(),
         }
     }
 
-    fn compare_positions(&self, point_1: &(i32, i32), point_2: &(i32, i32)) -> MouseMovement {
-        MouseMovement {
-            x: point_2.0 - point_1.0,
-            y: point_2.1 - point_1.1,
-        }
+    pub fn key_input_listener(
+        &self,
+        handle: Handle,
+    ) -> (
+        CallbackGuard<impl Fn(&Keycode)>,
+        CallbackGuard<impl Fn(&Keycode)>,
+        CallbackGuard<impl Fn(&usize)>,
+        CallbackGuard<impl Fn(&usize)>,
+    ) {
+        let key_down_guard = self.keys.on_key_down(|key| {
+            println!("Down {}", key);
+        });
+        let key_up_guard = self.keys.on_key_up(|key| println!("Up {}", key));
+        let mouse_down_guard = self
+            .keys
+            .on_mouse_down(|key| println!("Mouse down {}", key));
+        let mouse_up_guard = self.keys.on_mouse_up(|key| println!("Mouse up {}", key));
+        (
+            key_down_guard,
+            key_up_guard,
+            mouse_down_guard,
+            mouse_up_guard,
+        )
     }
 }

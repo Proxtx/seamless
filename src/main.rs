@@ -157,22 +157,11 @@ async fn main() {
     });
 
     let handler3 = handler.clone();
-    let tokio_handle = Handle::current();
-    std::thread::spawn(move || {
-        let input = input::MouseInputReceiver::new();
+    let mouse_input = input::MouseInputReceiver::new();
+    let _gld = mouse_input.mouse_movement_listener(handler3, Handle::current());
 
-        input.mouse_movement_listener(|movement| {
-            let handler = handler3.clone();
-            tokio_handle.spawn(async move {
-                match handler.lock().await.mouse_movement(movement).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        println!("Was unable to process MouseMovement: {}", e)
-                    }
-                }
-            });
-        })
-    });
+    let key_input = input::KeyInputReceiver::new();
+    let _gld2 = key_input.key_input_listener(Handle::current());
 
     gui_process_manager.listen().await;
 }
