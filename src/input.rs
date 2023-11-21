@@ -137,7 +137,7 @@ impl KeyInputReceiver {
         CallbackGuard<impl Fn(&usize)>,
     ) {
         let key_down_guard = self.keys.on_key_down(|key| {
-            println!("Down {}", key);
+            println!("Down {}", key.to_string());
         });
         let key_up_guard = self.keys.on_key_up(|key| println!("Up {}", key));
         let mouse_down_guard = self
