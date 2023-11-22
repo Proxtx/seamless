@@ -8,6 +8,7 @@ mod communicate;
 mod display;
 mod gui;
 mod input;
+mod key_handler;
 mod mouse_handler;
 mod protocol;
 use std::env;
@@ -95,6 +96,8 @@ async fn main() {
 
     comms.assign_updates(Box::new(client_updates)).await;
 
+    let key_handler = Arc::new(Mutex::new(key_handler::Handler::new()));
+
     tokio::spawn(async move {
         prot.event_listener(move |v| match v {
             protocol::Events::ClientDisplays(v) => {
@@ -154,7 +157,15 @@ async fn main() {
                 });
             }
             protocol::Events::KeyInput(input) => {
-                println!("{:?}", input)
+                let key_handler = key_handler.clone();
+                tokio::spawn(async move {
+                    match key_handler.lock().await.key_input(input) {
+                        Err(e) => {
+                            println!("Error sending keys: {}", e)
+                        }
+                        _ => {}
+                    }
+                });
             }
         })
         .await;
