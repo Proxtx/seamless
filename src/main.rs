@@ -97,6 +97,7 @@ async fn main() {
     comms.assign_updates(Box::new(client_updates)).await;
 
     let key_handler = Arc::new(Mutex::new(key_handler::Handler::new()));
+    let handler3 = handler2.clone();
 
     tokio::spawn(async move {
         prot.event_listener(move |v| match v {
@@ -158,12 +159,23 @@ async fn main() {
             }
             protocol::Events::KeyInput(input) => {
                 let key_handler = key_handler.clone();
+                let handler3 = handler3.clone();
                 tokio::spawn(async move {
-                    match key_handler.lock().await.key_input(input) {
+                    let on_own_screen = handler3.lock().await.mouse_on_own_display().await;
+                    let own = match on_own_screen {
+                        Ok(v) => v,
                         Err(e) => {
-                            println!("Error sending keys: {}", e)
+                            println!("Was unable to calculate mouse position: {}", e);
+                            return;
                         }
-                        _ => {}
+                    };
+                    if own {
+                        match key_handler.lock().await.key_input(input) {
+                            Err(e) => {
+                                println!("Error sending keys: {}", e)
+                            }
+                            _ => {}
+                        }
                     }
                 });
             }
