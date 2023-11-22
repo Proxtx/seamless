@@ -17,6 +17,7 @@ type Result<T> = std::result::Result<T, CommunicateError>;
 #[derive(Debug)]
 pub enum CommunicateError {
     SocketCreationError(std::io::Error),
+    ClientNotFound,
 }
 
 impl fmt::Display for CommunicateError {
@@ -24,6 +25,9 @@ impl fmt::Display for CommunicateError {
         match self {
             CommunicateError::SocketCreationError(ref err) => {
                 write!(f, "IO Error: {}", err.to_string())
+            }
+            CommunicateError::ClientNotFound => {
+                write!(f, "Client not found")
             }
         }
     }
@@ -125,6 +129,22 @@ impl Communicate {
                 .await?;
         }
 
+        Ok(())
+    }
+
+    pub async fn send_specific(&self, addr: SocketAddrV4, message: String) -> Result<()> {
+        let mut found = false;
+        for client in self.devices.lock().await.iter() {
+            if client.socket_addr == addr {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            return Err(CommunicateError::ClientNotFound);
+        }
+
+        self.main_socket.send_to(message.as_bytes(), addr).await?;
         Ok(())
     }
 

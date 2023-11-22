@@ -220,6 +220,17 @@ impl EventHandler {
     pub async fn emit_event(&self, event: Box<dyn Event>) -> Result<()> {
         Ok(self.communicate.send(event.serialize()?).await?)
     }
+
+    pub async fn secure_communication(
+        &self,
+        target: SocketAddrV4,
+        event: Box<dyn Event>,
+    ) -> Result<()> {
+        self.communicate
+            .send_specific(target, event.serialize()?)
+            .await?;
+        Ok(())
+    }
 }
 
 pub enum Events {

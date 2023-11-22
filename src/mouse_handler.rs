@@ -209,17 +209,12 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn mouse_on_own_display(&self) -> Result<bool> {
-        match self
+    pub async fn get_local_mouse_position(&self) -> Result<ClientMousePosition> {
+        Ok(self
             .display_manager
             .lock()
             .await
-            .get_local_mouse_position(&self.current_position)?
-            .client
-        {
-            Client::IsNetworked(_) => Ok(false),
-            Client::IsSelf => Ok(true),
-        }
+            .get_local_mouse_position(&self.current_position)?)
     }
 
     pub async fn set_current_position(&mut self, current_position: MousePosition) -> Result<()> {

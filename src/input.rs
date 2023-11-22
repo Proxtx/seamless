@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use {
     crate::{
+        display::Client,
         mouse_handler::Handler,
+        mouse_handler::Handler as MouseHandler,
         protocol::{EventHandler, ProtocolError},
     },
     device_query::{CallbackGuard, DeviceEvents, DeviceState, Keycode},
@@ -255,18 +257,21 @@ impl KeyInput {
 
 pub struct KeyInputReceiver {
     keys: DeviceState,
+    event_handler: Arc<EventHandler>,
+    mouse_handler: Arc<Mutex<MouseHandler>>,
 }
 
 impl KeyInputReceiver {
-    pub fn new() -> Self {
+    pub fn new(event_handler: Arc<EventHandler>, mouse_handler: Arc<Mutex<MouseHandler>>) -> Self {
         KeyInputReceiver {
             keys: DeviceState::new(),
+            event_handler,
+            mouse_handler,
         }
     }
 
     pub fn key_input_listener(
         &self,
-        event_handler: Arc<EventHandler>,
         handle: Handle,
     ) -> (
         CallbackGuard<impl Fn(&Keycode)>,
@@ -274,14 +279,41 @@ impl KeyInputReceiver {
         CallbackGuard<impl Fn(&usize)>,
         CallbackGuard<impl Fn(&usize)>,
     ) {
-        let event_handler_cls = event_handler.clone();
+        let event_handler_cls = self.event_handler.clone();
+        let mouse_handler_cls = self.mouse_handler.clone();
         let handle_cls = handle.clone();
         let key_down_guard = self.keys.on_key_down(move |key| {
             let key = key.clone();
             let event_handler = event_handler_cls.clone();
+            let mouse_handler = mouse_handler_cls.clone();
             handle_cls.clone().spawn(async move {
+                let mouse_client_res;
+                {
+                    let lock = mouse_handler.lock().await;
+                    mouse_client_res = lock.get_local_mouse_position().await;
+                }
+                let mouse_client_position = match mouse_client_res {
+                    Err(e) => {
+                        return println!(
+                        "Unable to read mouse position to transmit keys to the correct client: {}",
+                        e
+                    )
+                    }
+                    Ok(v) => v,
+                };
+
+                let client_addr = match mouse_client_position.client {
+                    Client::IsNetworked(v) => v,
+                    Client::IsSelf => {
+                        return;
+                    }
+                };
+
                 match event_handler
-                    .emit_event(Box::new(KeyInput::new(Key::from(key), Direction::Down)))
+                    .secure_communication(
+                        client_addr,
+                        Box::new(KeyInput::new(Key::from(key), Direction::Down)),
+                    )
                     .await
                 {
                     Err(e) => {
@@ -292,14 +324,41 @@ impl KeyInputReceiver {
             });
         });
 
-        let event_handler_cls = event_handler.clone();
+        let event_handler_cls = self.event_handler.clone();
+        let mouse_handler_cls = self.mouse_handler.clone();
         let handle_cls = handle.clone();
         let key_up_guard = self.keys.on_key_up(move |key| {
             let key = key.clone();
             let event_handler = event_handler_cls.clone();
+            let mouse_handler = mouse_handler_cls.clone();
             handle_cls.clone().spawn(async move {
+                let mouse_client_res;
+                {
+                    let lock = mouse_handler.lock().await;
+                    mouse_client_res = lock.get_local_mouse_position().await;
+                }
+                let mouse_client_position = match mouse_client_res {
+                    Err(e) => {
+                        return println!(
+                        "Unable to read mouse position to transmit keys to the correct client: {}",
+                        e
+                    )
+                    }
+                    Ok(v) => v,
+                };
+
+                let client_addr = match mouse_client_position.client {
+                    Client::IsNetworked(v) => v,
+                    Client::IsSelf => {
+                        return;
+                    }
+                };
+
                 match event_handler
-                    .emit_event(Box::new(KeyInput::new(Key::from(key), Direction::Up)))
+                    .secure_communication(
+                        client_addr,
+                        Box::new(KeyInput::new(Key::from(key), Direction::Up)),
+                    )
                     .await
                 {
                     Err(e) => {
@@ -310,14 +369,41 @@ impl KeyInputReceiver {
             });
         });
 
-        let event_handler_cls = event_handler.clone();
+        let event_handler_cls = self.event_handler.clone();
+        let mouse_handler_cls = self.mouse_handler.clone();
         let handle_cls = handle.clone();
         let mouse_down_guard = self.keys.on_mouse_down(move |key| {
-            let event_handler = event_handler_cls.clone();
             let key = key.clone();
+            let event_handler = event_handler_cls.clone();
+            let mouse_handler = mouse_handler_cls.clone();
             handle_cls.clone().spawn(async move {
+                let mouse_client_res;
+                {
+                    let lock = mouse_handler.lock().await;
+                    mouse_client_res = lock.get_local_mouse_position().await;
+                }
+                let mouse_client_position = match mouse_client_res {
+                    Err(e) => {
+                        return println!(
+                        "Unable to read mouse position to transmit keys to the correct client: {}",
+                        e
+                    )
+                    }
+                    Ok(v) => v,
+                };
+
+                let client_addr = match mouse_client_position.client {
+                    Client::IsNetworked(v) => v,
+                    Client::IsSelf => {
+                        return;
+                    }
+                };
+
                 match event_handler
-                    .emit_event(Box::new(KeyInput::new(Key::from(key), Direction::Down)))
+                    .secure_communication(
+                        client_addr,
+                        Box::new(KeyInput::new(Key::from(key), Direction::Down)),
+                    )
                     .await
                 {
                     Err(e) => {
@@ -328,14 +414,41 @@ impl KeyInputReceiver {
             });
         });
 
-        let event_handler_cls = event_handler.clone();
+        let event_handler_cls = self.event_handler.clone();
+        let mouse_handler_cls = self.mouse_handler.clone();
         let handle_cls = handle.clone();
-        let mouse_up_guard = self.keys.on_mouse_down(move |key| {
-            let event_handler = event_handler_cls.clone();
+        let mouse_up_guard = self.keys.on_mouse_up(move |key| {
             let key = key.clone();
+            let event_handler = event_handler_cls.clone();
+            let mouse_handler = mouse_handler_cls.clone();
             handle_cls.clone().spawn(async move {
+                let mouse_client_res;
+                {
+                    let lock = mouse_handler.lock().await;
+                    mouse_client_res = lock.get_local_mouse_position().await;
+                }
+                let mouse_client_position = match mouse_client_res {
+                    Err(e) => {
+                        return println!(
+                        "Unable to read mouse position to transmit keys to the correct client: {}",
+                        e
+                    )
+                    }
+                    Ok(v) => v,
+                };
+
+                let client_addr = match mouse_client_position.client {
+                    Client::IsNetworked(v) => v,
+                    Client::IsSelf => {
+                        return;
+                    }
+                };
+
                 match event_handler
-                    .emit_event(Box::new(KeyInput::new(Key::from(key), Direction::Up)))
+                    .secure_communication(
+                        client_addr,
+                        Box::new(KeyInput::new(Key::from(key), Direction::Up)),
+                    )
                     .await
                 {
                     Err(e) => {
