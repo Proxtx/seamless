@@ -209,7 +209,7 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn mouse_on_own_display(&self) -> Result<bool> {
+    pub async fn mouse_on_own_display(&mut self) -> Result<bool> {
         match self
             .display_manager
             .lock()
