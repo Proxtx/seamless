@@ -187,8 +187,8 @@ impl TryFrom<String> for Key {
     type Error = ProtocolError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.starts_with("K_") {
-            let cut_text = value.clone();
-            Key::prepare_text("K_", &mut cut_text.clone());
+            let mut cut_text = value.clone();
+            Key::prepare_text("K_", &mut cut_text);
             return match Keycode::from_str(&cut_text) {
                 Ok(v) => Ok(Key::KeyCode(v)),
                 Err(e) => Err(ProtocolError::ParserError(
@@ -197,8 +197,8 @@ impl TryFrom<String> for Key {
                 )),
             };
         } else if value.starts_with("M_") {
-            let cut_text = value.clone();
-            Key::prepare_text("M_", &mut cut_text.clone());
+            let mut cut_text = value.clone();
+            Key::prepare_text("M_", &mut cut_text);
             return match cut_text.parse::<usize>() {
                 Ok(v) => Ok(Key::MouseButton(v)),
                 Err(e) => Err(ProtocolError::ParserError(
