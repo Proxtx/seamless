@@ -81,6 +81,7 @@ async fn main() {
         event_handler: prot.clone(),
     };
     let prot2 = prot.clone();
+    let prot3 = prot.clone();
     let disp2 = displays.clone();
 
     let (mut gui_process_manager, gui_handler) = gui::GUIProcessManager::new(own_path.clone());
@@ -152,6 +153,9 @@ async fn main() {
                     }
                 });
             }
+            protocol::Events::KeyInput(input) => {
+                println!("{:?}", input)
+            }
         })
         .await;
     });
@@ -161,7 +165,7 @@ async fn main() {
     let _gld = mouse_input.mouse_movement_listener(handler3, Handle::current());
 
     let key_input = input::KeyInputReceiver::new();
-    let _gld2 = key_input.key_input_listener(Handle::current());
+    let _gld2 = key_input.key_input_listener(prot3, Handle::current());
 
     gui_process_manager.listen().await;
 }

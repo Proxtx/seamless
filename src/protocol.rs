@@ -2,7 +2,7 @@ use {
     crate::{
         communicate::{Communicate, CommunicateError},
         display::{Client, ClientDisplays},
-        input::MousePosition,
+        input::{KeyInput, MousePosition},
     },
     std::{
         error, fmt,
@@ -85,6 +85,23 @@ impl Event for ClientDisplays {
 impl Event for RequestDisplays {
     fn serialize(&self) -> Result<String> {
         Ok(format!("R{}", self.client_ip))
+    }
+}
+
+impl Event for KeyInput {
+    fn serialize(&self) -> Result<String> {
+        Ok("K".to_string() + &String::from(self))
+    }
+}
+
+struct KeyInputParser {}
+
+impl KeyInputParser {
+    fn parse(&self, text: String) -> Result<KeyInput> {
+        KeyInput::try_from(text)
+    }
+    fn get_prefix(&self) -> &'static str {
+        "K"
     }
 }
 
@@ -209,12 +226,14 @@ pub enum Events {
     MouseMovement(MousePosition),
     ClientDisplays(ClientDisplays),
     RequestDisplays(RequestDisplays),
+    KeyInput(KeyInput),
 }
 
 pub struct MainParser {
     mouse_movement_parser: MouseMoveParser,
     client_displays_parser: ClientDisplayParser,
     request_displays_parser: RequestDisplaysParser,
+    key_input_parser: KeyInputParser,
 }
 
 impl MainParser {
@@ -223,6 +242,7 @@ impl MainParser {
             mouse_movement_parser: MouseMoveParser {},
             client_displays_parser: ClientDisplayParser {},
             request_displays_parser: RequestDisplaysParser {},
+            key_input_parser: KeyInputParser {},
         }
     }
 
@@ -238,10 +258,13 @@ impl MainParser {
                 self.client_displays_parser.parse(text, src)?,
             ))
         } else if text.starts_with(self.request_displays_parser.get_prefix()) {
-            self.prepare_text(self.client_displays_parser.get_prefix(), &mut text);
+            self.prepare_text(self.request_displays_parser.get_prefix(), &mut text);
             Ok(Events::RequestDisplays(
                 self.request_displays_parser.parse(text)?,
             ))
+        } else if text.starts_with(self.key_input_parser.get_prefix()) {
+            self.prepare_text(self.key_input_parser.get_prefix(), &mut text);
+            Ok(Events::KeyInput(self.key_input_parser.parse(text)?))
         } else {
             Err(ProtocolError::ParseError)
         };
