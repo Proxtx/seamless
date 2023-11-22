@@ -289,7 +289,7 @@ impl KeyInputReceiver {
             handle_cls.clone().spawn(async move {
                 let mouse_client_res;
                 {
-                    let lock = mouse_handler.lock().await;
+                    let mut lock = mouse_handler.lock().await;
                     mouse_client_res = lock.get_local_mouse_position().await;
                 }
                 let mouse_client_position = match mouse_client_res {
@@ -334,7 +334,7 @@ impl KeyInputReceiver {
             handle_cls.clone().spawn(async move {
                 let mouse_client_res;
                 {
-                    let lock = mouse_handler.lock().await;
+                    let mut lock = mouse_handler.lock().await;
                     mouse_client_res = lock.get_local_mouse_position().await;
                 }
                 let mouse_client_position = match mouse_client_res {
@@ -379,7 +379,7 @@ impl KeyInputReceiver {
             handle_cls.clone().spawn(async move {
                 let mouse_client_res;
                 {
-                    let lock = mouse_handler.lock().await;
+                    let mut lock = mouse_handler.lock().await;
                     mouse_client_res = lock.get_local_mouse_position().await;
                 }
                 let mouse_client_position = match mouse_client_res {
@@ -424,7 +424,7 @@ impl KeyInputReceiver {
             handle_cls.clone().spawn(async move {
                 let mouse_client_res;
                 {
-                    let lock = mouse_handler.lock().await;
+                    let mut lock = mouse_handler.lock().await;
                     mouse_client_res = lock.get_local_mouse_position().await;
                 }
                 let mouse_client_position = match mouse_client_res {

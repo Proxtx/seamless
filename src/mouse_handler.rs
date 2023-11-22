@@ -209,7 +209,7 @@ impl Handler {
         Ok(())
     }
 
-    pub async fn get_local_mouse_position(&self) -> Result<ClientMousePosition> {
+    pub async fn get_local_mouse_position(&mut self) -> Result<ClientMousePosition> {
         Ok(self
             .display_manager
             .lock()

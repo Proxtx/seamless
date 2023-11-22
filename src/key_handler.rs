@@ -98,7 +98,7 @@ fn device_query_keycode_to_enigo_key(key: &Keycode) -> Result<Key> {
         Keycode::R => Ok(Key::Layout('r')),
         Keycode::S => Ok(Key::Layout('s')),
         Keycode::T => Ok(Key::Layout('t')),
-        Keycode::U => Ok(Key::Layout('v')),
+        Keycode::U => Ok(Key::Layout('u')),
         Keycode::V => Ok(Key::Layout('v')),
         Keycode::W => Ok(Key::Layout('w')),
         Keycode::X => Ok(Key::Layout('x')),
