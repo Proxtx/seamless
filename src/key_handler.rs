@@ -140,6 +140,7 @@ fn device_query_keycode_to_enigo_key(key: &Keycode) -> Result<Key> {
         Keycode::LAlt => Ok(Key::Alt),
         Keycode::LShift => Ok(Key::LShift),
         Keycode::RShift => Ok(Key::RShift),
+        Keycode::Tab => Ok(Key::Tab),
         _ => Err(KeyError::TransformationError),
     }
 }
