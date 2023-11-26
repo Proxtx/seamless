@@ -467,3 +467,5 @@ impl KeyInputReceiver {
         )
     }
 }
+
+struct KeysManager {}
