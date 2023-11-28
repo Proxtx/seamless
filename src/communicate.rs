@@ -114,6 +114,7 @@ impl Communicate {
 
         Communicate::devices_updater(&mut instance);
         Communicate::broadcast_address(&mut instance);
+        instance.planned_devices_updates();
 
         Ok(instance)
     }
@@ -171,6 +172,22 @@ impl Communicate {
                 }
             }
         }
+    }
+
+    fn planned_devices_updates(&mut self) {
+        let devices = self.devices.clone();
+        let display_manager = self.display_manager.clone();
+        tokio::spawn(async move {
+            loop {
+                {
+                    let mut devices = devices.lock().await;
+                    let clean_devices = Communicate::clean_devices(devices.to_vec());
+                    *devices = clean_devices;
+                    display_manager.lock().await.filter_clients(&devices);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            }
+        });
     }
 
     fn devices_updater(&mut self) {
