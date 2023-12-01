@@ -2,7 +2,7 @@ use {
     crate::input::{Direction, Key as InputKey, KeyInput},
     device_query::keymap::Keycode,
     enigo::{keycodes::Key, Enigo, KeyboardControllable, MouseButton, MouseControllable},
-    std::fmt,
+    std::{fmt, time::Duration, time::Instant},
 };
 
 type Result<T> = std::result::Result<T, KeyError>;
@@ -29,37 +29,69 @@ impl std::error::Error for KeyError {}
 
 pub struct Handler {
     enigo: Enigo,
+    keys_manager: KeysManager,
 }
 
 impl Handler {
     pub fn new() -> Handler {
         Handler {
             enigo: Enigo::new(),
+            keys_manager: KeysManager::new(),
         }
     }
 
-    pub fn key_input(&mut self, key_input: KeyInput) -> Result<()> {
+    pub fn timed_update(&mut self) {
+        let release = self.keys_manager.time_update();
+        for rel in release {
+            match rel {
+                EnigoKey::KeyboardButton(key) => {
+                    self.enigo.key_up(key);
+                }
+                EnigoKey::MouseButton(mb) => {
+                    println!("------mouse_up------");
+                    self.enigo.mouse_up(mb);
+                }
+            }
+        }
+    }
+
+    pub fn received_key(&mut self, key_input: KeyInput) -> Result<()> {
         match key_input.key {
             InputKey::KeyCode(keycode) => {
                 let key = device_query_keycode_to_enigo_key(&keycode)?;
-                match key_input.direction {
-                    Direction::Down => {
+                match (
+                    &key_input.direction,
+                    self.keys_manager
+                        .received_key_update(&EnigoKey::KeyboardButton(key), &key_input.direction),
+                ) {
+                    (Direction::Down, true) => {
                         self.enigo.key_down(key);
                     }
-                    Direction::Up => {
+                    (Direction::Up, true) => {
                         self.enigo.key_up(key);
                     }
+                    _ => {}
                 };
             }
-            InputKey::MouseButton(button) => match key_input.direction {
-                Direction::Down => {
-                    self.enigo
-                        .mouse_down(mouse_button_to_enigo_mouse_button(button)?);
+            InputKey::MouseButton(button) => {
+                let mouse_button = mouse_button_to_enigo_mouse_button(button)?;
+                match (
+                    &key_input.direction,
+                    self.keys_manager.received_key_update(
+                        &EnigoKey::MouseButton(mouse_button),
+                        &key_input.direction,
+                    ),
+                ) {
+                    (Direction::Down, true) => {
+                        self.enigo
+                            .mouse_down(mouse_button_to_enigo_mouse_button(button)?);
+                    }
+                    (Direction::Up, true) => self
+                        .enigo
+                        .mouse_up(mouse_button_to_enigo_mouse_button(button)?),
+                    _ => {}
                 }
-                Direction::Up => self
-                    .enigo
-                    .mouse_up(mouse_button_to_enigo_mouse_button(button)?),
-            },
+            }
         }
         Ok(())
     }
@@ -142,5 +174,94 @@ fn device_query_keycode_to_enigo_key(key: &Keycode) -> Result<Key> {
         Keycode::RShift => Ok(Key::RShift),
         Keycode::Tab => Ok(Key::Tab),
         _ => Err(KeyError::TransformationError),
+    }
+}
+
+#[derive(Clone, Debug)]
+enum EnigoKey {
+    KeyboardButton(Key),
+    MouseButton(MouseButton),
+}
+
+impl PartialEq for EnigoKey {
+    fn eq(&self, other: &Self) -> bool {
+        return match (self, other) {
+            (EnigoKey::MouseButton(mb), EnigoKey::MouseButton(omb)) => mb == omb,
+            (EnigoKey::KeyboardButton(kb), EnigoKey::KeyboardButton(okb)) => kb == okb,
+            _ => false,
+        };
+    }
+}
+
+#[derive(Debug)]
+struct LivePressedKey {
+    key: EnigoKey,
+    last_update: Instant,
+}
+
+impl LivePressedKey {
+    pub fn new(key: EnigoKey) -> Self {
+        LivePressedKey {
+            key,
+            last_update: Instant::now(),
+        }
+    }
+
+    pub fn update(&mut self) {
+        self.last_update = Instant::now();
+    }
+
+    pub fn expired(&self) -> bool {
+        Instant::now().duration_since(self.last_update) > Duration::from_millis(75)
+    }
+}
+
+struct KeysManager {
+    pressed_keys: Vec<LivePressedKey>,
+}
+
+impl KeysManager {
+    pub fn new() -> KeysManager {
+        KeysManager {
+            pressed_keys: Vec::new(),
+        }
+    }
+
+    pub fn received_key_update(&mut self, key: &EnigoKey, direction: &Direction) -> bool {
+        println!("{:?}", self.pressed_keys);
+        return match direction {
+            Direction::Down => {
+                for pressed_key in self.pressed_keys.iter_mut() {
+                    if &pressed_key.key == key {
+                        pressed_key.update();
+                        return false;
+                    }
+                }
+
+                self.pressed_keys.push(LivePressedKey::new(key.clone()));
+                true
+            }
+            Direction::Up => {
+                self.pressed_keys.retain(|list_key| key != &list_key.key);
+                true
+            }
+        };
+    }
+
+    pub fn time_update(&mut self) -> Vec<EnigoKey> {
+        let mut release_keys: Vec<EnigoKey> = Vec::new();
+        self.pressed_keys = self
+            .pressed_keys
+            .drain(..)
+            .filter(|key| {
+                if key.expired() {
+                    release_keys.push(key.key.clone());
+                    return false;
+                }
+
+                return true;
+            })
+            .collect();
+        return release_keys;
     }
 }

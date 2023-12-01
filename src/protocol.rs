@@ -221,7 +221,7 @@ impl EventHandler {
         Ok(self.communicate.send(event.serialize()?).await?)
     }
 
-    pub async fn secure_communication(
+    pub async fn specific_communication(
         &self,
         target: SocketAddrV4,
         event: Box<dyn Event>,

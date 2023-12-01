@@ -1,4 +1,4 @@
-use std::{net::SocketAddrV4, str::FromStr, sync::Arc};
+use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use gui::GUI;
 use protocol::EventHandler;
@@ -98,6 +98,8 @@ async fn main() {
 
     let key_handler = Arc::new(Mutex::new(key_handler::Handler::new()));
 
+    let key_handler2 = key_handler.clone();
+
     tokio::spawn(async move {
         prot.event_listener(move |v| match v {
             protocol::Events::ClientDisplays(v) => {
@@ -157,9 +159,9 @@ async fn main() {
                 });
             }
             protocol::Events::KeyInput(input) => {
-                let key_handler = key_handler.clone();
+                let key_handler = key_handler2.clone();
                 tokio::spawn(async move {
-                    match key_handler.lock().await.key_input(input) {
+                    match key_handler.lock().await.received_key(input) {
                         Err(e) => {
                             println!("Error sending keys: {}", e)
                         }
@@ -178,6 +180,15 @@ async fn main() {
     let handler4 = handler.clone();
     let key_input = input::KeyInputReceiver::new(prot3, handler4);
     let _gld2 = key_input.key_input_listener(Handle::current());
+
+    tokio::spawn(async move {
+        loop {
+            {
+                key_handler.lock().await.timed_update();
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    });
 
     gui_process_manager.listen().await;
 }

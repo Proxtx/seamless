@@ -1,5 +1,3 @@
-use std::{collections::hash_map::Keys, str::FromStr};
-
 use {
     crate::{
         display::Client,
@@ -8,8 +6,7 @@ use {
         protocol::{EventHandler, ProtocolError},
     },
     device_query::{CallbackGuard, DeviceEvents, DeviceState, Keycode},
-    enigo::keycodes::Key as EnigoKey,
-    std::{ops, sync::Arc, time::Instant},
+    std::{ops, str::FromStr, sync::Arc},
     tokio::{runtime::Handle, sync::Mutex},
 };
 
@@ -311,7 +308,7 @@ impl KeyInputReceiver {
                 };
 
                 match event_handler
-                    .secure_communication(
+                    .specific_communication(
                         client_addr,
                         Box::new(KeyInput::new(Key::from(key), Direction::Down)),
                     )
@@ -356,7 +353,7 @@ impl KeyInputReceiver {
                 };
 
                 match event_handler
-                    .secure_communication(
+                    .specific_communication(
                         client_addr,
                         Box::new(KeyInput::new(Key::from(key), Direction::Up)),
                     )
@@ -401,7 +398,7 @@ impl KeyInputReceiver {
                 };
 
                 match event_handler
-                    .secure_communication(
+                    .specific_communication(
                         client_addr,
                         Box::new(KeyInput::new(Key::from(key), Direction::Down)),
                     )
@@ -446,7 +443,7 @@ impl KeyInputReceiver {
                 };
 
                 match event_handler
-                    .secure_communication(
+                    .specific_communication(
                         client_addr,
                         Box::new(KeyInput::new(Key::from(key), Direction::Up)),
                     )
@@ -467,46 +464,4 @@ impl KeyInputReceiver {
             mouse_up_guard,
         )
     }
-}
-
-struct LivePressedKey {
-    key: EnigoKey,
-    last_update: Instant,
-}
-
-impl LivePressedKey {
-    pub fn new(key: EnigoKey) -> Self {
-        LivePressedKey {
-            key,
-            last_update: Instant::now(),
-        }
-    }
-
-    pub fn update(&mut self) {
-        self.last_update = Instant::now();
-    }
-}
-
-struct KeysManager {
-    pressed_keys: Vec<LivePressedKey>,
-}
-
-impl KeysManager {
-    pub fn new() -> KeysManager {
-        KeysManager {
-            pressed_keys: Vec::new(),
-        }
-    }
-
-    pub fn received_key_update(&mut self, key: EnigoKey, direction: Direction) {
-        for pressed_key in self.pressed_keys.iter_mut() {
-            if pressed_key.key == key {
-                pressed_key.update();
-                return;
-            }
-        }
-        //self.pressed_keys.insert(index, element)
-    }
-
-    pub fn get_release_keys() {}
 }
