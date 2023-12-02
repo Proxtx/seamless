@@ -253,10 +253,23 @@ impl KeyInput {
     }
 }
 
+struct HeldKeysManager {
+    held_keys: Vec<device_query::Keycode>,
+}
+
+impl HeldKeysManager {
+    pub fn new() -> Self {
+        HeldKeysManager {
+            held_keys: Vec::new(),
+        }
+    }
+}
+
 pub struct KeyInputReceiver {
     keys: DeviceState,
     event_handler: Arc<EventHandler>,
     mouse_handler: Arc<Mutex<MouseHandler>>,
+    held_keys_manager: Arc<Mutex<HeldKeysManager>>,
 }
 
 impl KeyInputReceiver {
@@ -265,7 +278,15 @@ impl KeyInputReceiver {
             keys: DeviceState::new(),
             event_handler,
             mouse_handler,
+            held_keys_manager: Arc::new(Mutex::new(HeldKeysManager::new())),
         }
+    }
+
+    fn send_key(
+        event_handler: Arc<EventHandler>,
+        mouse_handler: Arc<Mutex<MouseHandler>>,
+    ) -> Result<(), ProtocolError> {
+        Ok(())
     }
 
     pub fn key_input_listener(
