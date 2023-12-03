@@ -20,6 +20,11 @@ pub enum MouseHandlerError {
     OwnDisplayError,
 }
 
+pub struct MouseIndex {
+    mouse_position: MousePosition,
+    protocol_index: u64
+}
+
 impl error::Error for MouseHandlerError {}
 
 impl fmt::Display for MouseHandlerError {
