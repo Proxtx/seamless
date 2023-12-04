@@ -264,4 +264,8 @@ impl KeysManager {
             .collect();
         return release_keys;
     }
+
+    pub fn clear(&mut self) {
+        self.pressed_keys = Vec::new();
+    }
 }
