@@ -437,7 +437,7 @@ impl KeyInputReceiver {
             let held_keys_manager_cls = held_keys_manager_cls.clone();
             handle_cls.spawn(async move {
                 KeyInputReceiver::send_key(
-                    &KeyInput::new(Key::from(key), Direction::Down),
+                    &KeyInput::new(Key::from(key), Direction::Up),
                     held_keys_manager_cls,
                 )
                 .await;
