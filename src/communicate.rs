@@ -161,10 +161,7 @@ impl Communicate {
                 Ok((amount, socket_addr)) => {
                     let buf = &mut buf[..amount];
                     match std::str::from_utf8(buf) {
-                        Ok(msg) => {
-                            println!("{}", msg);
-                            callback(msg, socket_addr)
-                        }
+                        Ok(msg) => callback(msg, socket_addr),
                         Err(e) => {
                             println!("Error converting buffer to String: {}", e)
                         }
