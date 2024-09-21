@@ -1,9 +1,13 @@
 use {
     eframe::{
-        egui::{self, CursorIcon},
+        egui::{self, CursorIcon, ViewportBuilder},
         Frame,
     },
-    std::process::{Child, Command},
+    std::{
+        borrow::BorrowMut,
+        option,
+        process::{Child, Command},
+    },
     tokio::sync::mpsc::{self, error::SendError},
 };
 
@@ -11,14 +15,13 @@ pub struct GUI {}
 
 impl GUI {
     pub fn new() -> Self {
-        let options = eframe::NativeOptions {
-            initial_window_size: Some(egui::vec2(320.0, 240.0)),
-            always_on_top: true,
-            centered: true,
-            transparent: true,
-            decorated: false,
-            ..Default::default()
-        };
+        let mut options = eframe::NativeOptions::default();
+        options.viewport = options
+            .viewport
+            .with_transparent(true)
+            .with_decorations(false)
+            .with_always_on_top()
+            .with_inner_size(egui::vec2(320.0, 240.0));
         let ui = SeamlessUI::new();
 
         eframe::run_native("Seamless", options, Box::new(|_cc| Box::new(ui)))

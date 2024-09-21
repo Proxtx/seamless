@@ -22,7 +22,7 @@ pub enum MouseHandlerError {
 
 pub struct MouseIndex {
     mouse_position: MousePosition,
-    protocol_index: u64
+    protocol_index: u64,
 }
 
 impl error::Error for MouseHandlerError {}
@@ -80,7 +80,7 @@ impl Handler {
     ) -> Handler {
         Handler {
             event_handler,
-            enigo: Enigo::new(),
+            enigo: Enigo::new(&enigo::Settings::default()),
             display_manager,
             current_position: MousePosition { x: 0, y: 0 },
             gui_handler,

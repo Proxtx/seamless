@@ -35,7 +35,7 @@ pub struct Handler {
 impl Handler {
     pub fn new() -> Handler {
         Handler {
-            enigo: Enigo::new(),
+            enigo: Enigo::new(&enigo::Settings::default()),
             keys_manager: KeysManager::new(),
         }
     }
