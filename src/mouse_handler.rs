@@ -80,7 +80,7 @@ impl Handler {
     ) -> Handler {
         Handler {
             event_handler,
-            enigo: Enigo::new(&enigo::Settings::default()),
+            enigo: Enigo::new(&enigo::Settings::default()).unwrap(),
             display_manager,
             current_position: MousePosition { x: 0, y: 0 },
             gui_handler,
